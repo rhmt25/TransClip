@@ -49,3 +49,8 @@ Format: `D-<nomor> · <tanggal> · <judul>` → Keputusan, Alasan, Alternatif ya
 ### D-011 · 2026-11-18 · Record layer sebagai `SecureReader`/`SecureWriter`, bukan `AsyncRead`/`AsyncWrite`
 * **Keputusan:** lapisan record menyediakan `SecureReader::read_frame` dan `SecureWriter::write_frame` (async) di atas setengah-koneksi hasil `tokio::io::split`, tanpa implementasi trait `AsyncRead`/`AsyncWrite` manual.
 * **Alasan:** semua pembaca/penulis di engine hanya berbicara dalam frame; poll-state-machine manual rawan bug dan tidak memberi manfaat. Byte stream plaintext tetap kontinu lintas record seperti di PROTOCOL §7.
+
+### D-012 · 2026-11-18 · Engine Kotlin sebagai modul JVM `:engine`
+* **Konteks:** PLAN §6.1 menaruh paket `engine` di dalam `:app`. Logika `Link`, `PeerManager`, `ClipboardSync` tidak butuh Android SDK, dan di `:app` uji JVM-nya lebih lambat serta ikut terikat plugin Android.
+* **Keputusan:** buat modul JVM murni `:engine` (paket `io.transclip.engine`) di antara `:proto` dan `:app`, mencerminkan `proto`/`engine` di sisi Rust. Kode khusus Android (NSD, Keystore, service, UI) tetap di `:app`.
+* **Dampak:** uji engine berjalan dengan `./gradlew :engine:test` tanpa emulator; `:app` bergantung pada `:engine`.

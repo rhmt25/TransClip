@@ -224,7 +224,7 @@ Baca `CLAUDE.md` dulu. Spesifikasi: `docs/PLAN.md` (arsitektur) dan `docs/PROTOC
 * **Lakukan:** device_id dibuat sekali; GK dibungkus kunci Keystore AES-256-GCM (alias `transclip_gk_wrap`); DataStore untuk setting & peer.
 * **Selesai jika:** instrumented test (atau Robolectric) menyimpan/memuat GK; restart app → device_id sama.
 
-### [ ] P3-02 · Engine Kotlin: Link, PeerManager, Discovery
+### [~] P3-02 · Engine Kotlin: Link, PeerManager, Discovery
 * **Dep:** P3-01
 * **File:** `app/.../engine/*`, `app/.../net/{TcpServer.kt,TcpDialer.kt,NsdDiscovery.kt,BeaconDiscovery.kt}`
 * **Lakukan:** padanan P2-01…P2-03 dengan coroutine. `NsdManager` register+discover+resolve (serialisasi resolve, satu per waktu — keterbatasan API lama); `MulticastLock`; `NetworkCallback`.

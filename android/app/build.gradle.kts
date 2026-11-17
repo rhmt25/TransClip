@@ -48,6 +48,7 @@ kotlin {
 
 dependencies {
     implementation(project(":proto"))
+    implementation(project(":engine"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
     implementation(platform(libs.compose.bom))

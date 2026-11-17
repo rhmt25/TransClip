@@ -17,5 +17,6 @@ dependencyResolutionManagement {
 }
 
 include(":proto")
+include(":engine")
 include(":app")
 
