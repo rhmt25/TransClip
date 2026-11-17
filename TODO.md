@@ -174,7 +174,7 @@ Baca `CLAUDE.md` dulu. Spesifikasi: `docs/PLAN.md` (arsitektur) dan `docs/PROTOC
 * **Lakukan:** register + browse `_transclip._tcp` (`mdns-sd`), filter `gid`; UDP beacon kirim tiap 10 s dan saat diminta, terima & filter (`socket2`, `SO_BROADCAST`, `SO_REUSEADDR`); cache alamat di `peers.json`. Output `Stream<PeerSeen>`.
 * **Selesai jika:** test integrasi dua instans engine di localhost saling menemukan via beacon (mDNS boleh ditandai `#[ignore]` bila tidak stabil di CI).
 
-### [ ] P2-03 · Engine: PeerManager & aturan dial
+### [x] P2-03 · Engine: PeerManager & aturan dial
 * **Dep:** P2-02
 * **File:** `engine/src/peers.rs`
 * **Lakukan:** state per peer, backoff (2→30 s), aturan dial `device_id` lebih kecil + fallback 30 s, penanganan duplikat, listener TCP port config, status publik via `watch` channel. Batas 10 peer (peer ke-11 ditolak dengan log + event UI).
