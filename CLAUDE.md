@@ -39,7 +39,7 @@ Agent tidak punya perangkat fisik. Untuk task [MANUAL]:
 ### Rust (`windows/`)
 * `cargo fmt`; `cargo clippy --workspace --all-targets -- -D warnings`.
 * Error: `thiserror` di crate library, `anyhow` hanya di `app`.
-* `unsafe` hanya di modul Win32 (`app/src/{clipboard,radial,tray,bluetooth,ipc}`), setiap blok diberi komentar `// SAFETY:`.
+* `unsafe` hanya di modul Win32 (`app/src/{clipboard,radial,tray,bluetooth,ipc,paths,secrets,single_instance}`), setiap blok diberi komentar `// SAFETY:`.
 * Crate `proto` dan `engine` tidak boleh bergantung pada crate `windows`.
 * Logging lewat `tracing` dengan field terstruktur.
 

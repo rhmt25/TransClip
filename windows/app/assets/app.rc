@@ -1,0 +1,7 @@
+#define IDI_APP 1
+#define IDI_PAUSED 2
+#define IDI_ERROR 3
+IDI_APP ICON "transclip.ico"
+IDI_PAUSED ICON "transclip-paused.ico"
+IDI_ERROR ICON "transclip-error.ico"
+1 24 "app.manifest"

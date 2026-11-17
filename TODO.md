@@ -186,7 +186,7 @@ Baca `CLAUDE.md` dulu. Spesifikasi: `docs/PLAN.md` (arsitektur) dan `docs/PROTOC
 * **Lakukan:** API `submit_local(LocalClip)` dan trait `ClipboardSink { fn apply(&self, RemoteClip) -> Result<()> }` yang diimplementasikan platform. Siklus PLAN §4.3/4.4, ack + retry 1×, antrian offline 5 item per peer.
 * **Selesai jika:** test 3 engine di localhost: teks dari A sampai di B dan C tepat sekali; tidak ada echo; peer offline menerima item setelah online; item > 8 MiB ditolak.
 
-### [ ] P2-05 · Daemon: kerangka app Windows
+### [x] P2-05 · Daemon: kerangka app Windows
 * **Dep:** P0-04
 * **File:** `windows/app/src/{main.rs,single_instance.rs,paths.rs,logging.rs,config.rs,secrets.rs}`
 * **Lakukan:** parsing argumen (PLAN §5.1), mutex single instance, path data (PLAN §5.2, gunakan `SHGetKnownFolderPath`), logging `tracing` rolling, `Config` (TOML, default, validasi, simpan atomik via file temp + rename), `SecretStore` DPAPI, panic hook, `build.rs` + manifest + ikon.
