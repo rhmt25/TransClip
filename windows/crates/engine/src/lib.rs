@@ -1,5 +1,7 @@
 //! TransClip engine: connection links, discovery and sync logic.
 
+pub mod clip;
 pub mod discovery;
 pub mod link;
 pub mod peers;
+pub mod queue;

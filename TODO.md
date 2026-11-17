@@ -180,7 +180,7 @@ Baca `CLAUDE.md` dulu. Spesifikasi: `docs/PLAN.md` (arsitektur) dan `docs/PROTOC
 * **Lakukan:** state per peer, backoff (2→30 s), aturan dial `device_id` lebih kecil + fallback 30 s, penanganan duplikat, listener TCP port config, status publik via `watch` channel. Batas 10 peer (peer ke-11 ditolak dengan log + event UI).
 * **Selesai jika:** test: dua engine saling terhubung tepat satu link; matikan satu → status Offline → hidupkan → reconnect; dial bersamaan → tersisa satu.
 
-### [ ] P2-04 · Engine: ClipboardSync & OfflineQueue
+### [x] P2-04 · Engine: ClipboardSync & OfflineQueue
 * **Dep:** P2-03, P1-07
 * **File:** `engine/src/clip.rs`, `engine/src/queue.rs`
 * **Lakukan:** API `submit_local(LocalClip)` dan trait `ClipboardSink { fn apply(&self, RemoteClip) -> Result<()> }` yang diimplementasikan platform. Siklus PLAN §4.3/4.4, ack + retry 1×, antrian offline 5 item per peer.

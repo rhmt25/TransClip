@@ -228,6 +228,7 @@ dependencies = [
  "proto",
  "serde",
  "serde_json",
+ "sha2",
  "socket2",
  "thiserror",
  "tokio",

@@ -284,9 +284,16 @@ impl PeerManager {
         }
     }
 
-    /// Stop everything: say `bye` to all peers and close the listener.
-    pub async fn shutdown(mut self) {
+    /// Stop everything: say `bye` to all peers and close the listener. Returns once the
+    /// actor has finished, so the listen port is free again.
+    pub async fn stop(&self) {
         let _ = self.cmd.send(Internal::Shutdown).await;
+        self.cmd.closed().await;
+    }
+
+    /// Like [`PeerManager::stop`], consuming the handle.
+    pub async fn shutdown(mut self) {
+        self.stop().await;
         if let Some(actor) = self.actor.take() {
             let _ = actor.await;
         }
