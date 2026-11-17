@@ -1,5 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">TransClip</string>
+    <string name="channel_sync">Sinkronisasi</string>
+    <string name="status_not_paired">Belum dipasangkan dengan perangkat lain</string>
+    <string name="status_paused">Sinkronisasi dijeda</string>
+    <plurals name="status_online">
+        <item quantity="other">%d perangkat terhubung</item>
+    </plurals>
+    <string name="action_send_clip">Kirim clipboard</string>
+    <string name="action_pause">Jeda</string>
+    <string name="action_resume">Lanjutkan</string>
+    <string name="action_disconnect">Putuskan</string>
+    <string name="tile_label">Kirim clipboard</string>
+    <string name="capture_sent">Terkirim ke %d perangkat</string>
+    <string name="capture_nothing">Tidak ada yang bisa dikirim</string>
+    <string name="capture_unchanged">Isi clipboard belum berubah</string>
+    <string name="capture_not_running">TransClip belum berjalan atau dijeda</string>
+    <string name="pairing_title">Pairing</string>
+    <string name="pairing_code_hint">Tempel kode pairing</string>
+    <string name="pairing_join">Gabung</string>
+    <string name="pairing_create">Buat grup baru</string>
+    <string name="pairing_expired">Kode sudah kedaluwarsa</string>
+    <string name="pairing_invalid">Kode pairing tidak valid</string>
+    <string name="pairing_joined">Berhasil bergabung</string>
+    <string name="pairing_created">Kode disalin; berlaku 2 menit</string>
+    <string name="history_title">Aktivitas</string>
 </resources>
-

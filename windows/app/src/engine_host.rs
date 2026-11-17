@@ -12,6 +12,7 @@ use engine::peers::{ManagerConfig, PeerManager, PeerState, PeerStatus};
 use proto::beacon::Platform;
 use proto::group::GroupKey;
 use proto::ids::DeviceId;
+use proto::pairing::PairingInfo;
 use serde_json::{json, Value};
 use tokio::sync::{mpsc, watch};
 
@@ -21,7 +22,11 @@ use crate::config::Config;
 use crate::ipc::protocol::Event;
 use crate::ipc::server::{Handler, IpcServer};
 use crate::paths::Paths;
+use crate::secrets::Secrets;
 use crate::strings;
+
+/// Pairing codes are valid for two minutes (PLAN section 7).
+const PAIRING_TTL_SECS: u64 = 120;
 
 /// Everything the engine needs from the daemon's start-up.
 pub struct HostInput {
@@ -31,8 +36,6 @@ pub struct HostInput {
     pub paths: Paths,
     /// This device.
     pub device_id: DeviceId,
-    /// Group key, when paired.
-    pub group_key: Option<GroupKey>,
     /// Sender for commands to this host (used by IPC requests).
     pub commands: mpsc::UnboundedSender<ToEngine>,
 }
@@ -42,15 +45,22 @@ fn open_folder(path: &Path) {
     let _ = std::process::Command::new("explorer.exe").arg(path).spawn();
 }
 
+fn now_secs() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs())
+}
+
 /// State shared between the command loop, status watchers and IPC handlers.
 struct Hub {
     ui: UiHandle,
     status: Mutex<Status>,
     ipc: OnceLock<IpcServer>,
-    peers: OnceLock<watch::Receiver<Vec<PeerStatus>>>,
+    peers: Mutex<Option<watch::Receiver<Vec<PeerStatus>>>>,
     commands: mpsc::UnboundedSender<ToEngine>,
     config: Config,
     paths: Paths,
+    device_id: DeviceId,
 }
 
 impl Hub {
@@ -77,7 +87,9 @@ impl Hub {
     fn peers_json(&self) -> Value {
         let list = self
             .peers
-            .get()
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .as_ref()
             .map(|rx| rx.borrow().clone())
             .unwrap_or_default();
         Value::Array(
@@ -96,6 +108,32 @@ impl Hub {
                 })
                 .collect(),
         )
+    }
+
+    /// Build a fresh pairing URI for the current group.
+    fn pairing_uri(&self, gk: GroupKey) -> String {
+        let port = self.config.port;
+        PairingInfo {
+            gk,
+            group_name: "TransClip".into(),
+            inviter: self.device_id,
+            addrs: local_addresses(port),
+            expires: now_secs() + PAIRING_TTL_SECS,
+        }
+        .to_uri()
+    }
+}
+
+/// Private IPv4 addresses of this PC as `ip:port`, best effort.
+fn local_addresses(port: u16) -> Vec<String> {
+    // Connecting a UDP socket sends nothing but makes the OS pick the outgoing interface.
+    let probe = std::net::UdpSocket::bind("0.0.0.0:0").and_then(|s| {
+        s.connect("192.0.2.1:9")?;
+        s.local_addr()
+    });
+    match probe {
+        Ok(a) if !a.ip().is_unspecified() => vec![format!("{}:{port}", a.ip())],
+        _ => Vec::new(),
     }
 }
 
@@ -128,6 +166,43 @@ fn handler(hub: Arc<Hub>) -> Handler {
                     open_folder(&hub.paths.log_dir());
                     Ok(Value::Null)
                 }
+                "create_group" => {
+                    let path = hub.paths.secrets_file();
+                    let mut secrets = Secrets::load_or_create(&path).map_err(|e| e.to_string())?;
+                    let gk = match &secrets.group_key {
+                        Some(k) => k.clone(),
+                        None => {
+                            let k = GroupKey::generate().map_err(|e| e.to_string())?;
+                            secrets.group_key = Some(k.clone());
+                            secrets.save(&path).map_err(|e| e.to_string())?;
+                            let _ = hub.commands.send(ToEngine::Reload);
+                            k
+                        }
+                    };
+                    Ok(json!({ "uri": hub.pairing_uri(gk) }))
+                }
+                "get_pairing_uri" => {
+                    let secrets = Secrets::load_or_create(&hub.paths.secrets_file())
+                        .map_err(|e| e.to_string())?;
+                    let gk = secrets.group_key.ok_or("not in a group yet")?;
+                    Ok(json!({ "uri": hub.pairing_uri(gk) }))
+                }
+                "join_group" => {
+                    let uri = params
+                        .get("uri")
+                        .and_then(Value::as_str)
+                        .ok_or("params.uri must be a string")?;
+                    let info = PairingInfo::parse(uri).map_err(|_| "invalid pairing code")?;
+                    if info.is_expired(now_secs()) {
+                        return Err("the pairing code has expired".into());
+                    }
+                    let path = hub.paths.secrets_file();
+                    let mut secrets = Secrets::load_or_create(&path).map_err(|e| e.to_string())?;
+                    secrets.group_key = Some(info.gk);
+                    secrets.save(&path).map_err(|e| e.to_string())?;
+                    let _ = hub.commands.send(ToEngine::Reload);
+                    Ok(json!({ "joined": info.group_name }))
+                }
                 "quit" => {
                     hub.ui.send(ToUi::Quit);
                     Ok(Value::Null)
@@ -141,29 +216,150 @@ fn handler(hub: Arc<Hub>) -> Handler {
     })
 }
 
+/// The running pieces that exist only while the device is in a group.
+struct Running {
+    mgr: Arc<PeerManager>,
+    sync: ClipboardSync,
+    beacon: BeaconService,
+    _mdns: Option<MdnsService>,
+}
+
+impl Running {
+    async fn stop(self) {
+        self.mgr.stop().await;
+    }
+}
+
+/// Start discovery, the peer manager and clipboard sync for `gk`.
+async fn start_engine(
+    hub: &Arc<Hub>,
+    ui: &UiHandle,
+    gk: GroupKey,
+    paused: &Arc<AtomicBool>,
+) -> Option<Running> {
+    let config = &hub.config;
+    let device_id = hub.device_id;
+    let gid = gk.group_id();
+    let (seen_tx, seen_rx) = mpsc::channel(64);
+    let local = LocalInfo {
+        id: device_id,
+        name: config.device_name.clone(),
+        platform: "windows".into(),
+        app: format!("transclip/{}", env!("CARGO_PKG_VERSION")),
+        caps: vec!["clip".into()],
+        role: "full".into(),
+    };
+    let listen = std::net::SocketAddr::from(([0, 0, 0, 0], config.port));
+    let (mgr, mut events) =
+        match PeerManager::start(ManagerConfig::new(local, gk, listen), seen_rx).await {
+            Ok(x) => x,
+            Err(e) => {
+                tracing::error!(error = %e, "cannot listen on the TCP port");
+                hub.update(|s| s.error = true);
+                ui.send(ToUi::Notify {
+                    title: strings::APP_NAME.into(),
+                    text: format!("Port {} tidak dapat dipakai", config.port),
+                });
+                return None;
+            }
+        };
+    let beacon = match BeaconService::start(
+        BeaconConfig::lan(
+            gid,
+            device_id,
+            config.port,
+            Platform::Windows,
+            config.device_name.clone(),
+        ),
+        seen_tx.clone(),
+    ) {
+        Ok(b) => b,
+        Err(e) => {
+            tracing::error!(error = %e, "cannot start discovery");
+            hub.update(|s| s.error = true);
+            mgr.stop().await;
+            return None;
+        }
+    };
+    let mdns = MdnsService::start(
+        &MdnsConfig {
+            gid,
+            device_id,
+            tcp_port: config.port,
+            platform: Platform::Windows,
+            name: config.device_name.clone(),
+        },
+        seen_tx,
+    );
+    if let Err(e) = &mdns {
+        tracing::warn!(error = %e, "mDNS unavailable, relying on beacons");
+    }
+    hub.update(|s| s.error = false);
+
+    let mgr = Arc::new(mgr);
+    *hub.peers.lock().unwrap_or_else(PoisonError::into_inner) = Some(mgr.status());
+    let mut watch = mgr.status();
+    let hub2 = Arc::clone(hub);
+    tokio::spawn(async move {
+        while watch.changed().await.is_ok() {
+            let online = watch
+                .borrow()
+                .iter()
+                .filter(|p| p.state == PeerState::Online)
+                .count();
+            hub2.update(|s| s.online = online);
+            if let Some(ipc) = hub2.ipc.get() {
+                ipc.publish(Event {
+                    event: "peers_changed".into(),
+                    data: hub2.peers_json(),
+                });
+            }
+        }
+    });
+    let sink = Arc::new(WindowsSink::new(ui.hwnd(), Arc::clone(paused)));
+    let (sync, mut clip_events) =
+        ClipboardSync::new(Arc::clone(&mgr), sink, device_id, ClipConfig::default());
+    let pump_sync = sync.clone();
+    tokio::spawn(async move {
+        while let Some(ev) = events.recv().await {
+            // Clipboard frames are consumed; other events need no action yet.
+            let _ = pump_sync.handle_event(ev).await;
+        }
+    });
+    tokio::spawn(async move {
+        while let Some(ev) = clip_events.recv().await {
+            tracing::debug!(event = ?ev, "clipboard event");
+        }
+    });
+    Some(Running {
+        mgr,
+        sync,
+        beacon,
+        _mdns: mdns.ok(),
+    })
+}
+
 /// Run until `ToEngine::Quit`.
 pub async fn run(input: HostInput, ui: UiHandle, mut commands: mpsc::UnboundedReceiver<ToEngine>) {
     let HostInput {
         config,
         paths,
         device_id,
-        group_key,
         commands: command_tx,
     } = input;
     let hub = Arc::new(Hub {
         ui: ui.clone(),
         status: Mutex::new(Status {
-            paired: group_key.is_some(),
             paused: config.paused,
             ..Status::default()
         }),
         ipc: OnceLock::new(),
-        peers: OnceLock::new(),
+        peers: Mutex::new(None),
         commands: command_tx,
         config: config.clone(),
         paths: paths.clone(),
+        device_id,
     });
-    hub.update(|_| {});
     match IpcServer::start(&crate::ipc::pipe_name(), handler(Arc::clone(&hub))) {
         Ok(server) => {
             let _ = hub.ipc.set(server);
@@ -172,109 +368,39 @@ pub async fn run(input: HostInput, ui: UiHandle, mut commands: mpsc::UnboundedRe
     }
 
     let paused = Arc::new(AtomicBool::new(config.paused));
-    let mut sync: Option<ClipboardSync> = None;
-    let (seen_tx, seen_rx) = mpsc::channel(64);
-    let mut started: Option<(Arc<PeerManager>, BeaconService, Option<MdnsService>)> = None;
-    if let Some(gk) = group_key {
-        let gid = gk.group_id();
-        let local = LocalInfo {
-            id: device_id,
-            name: config.device_name.clone(),
-            platform: "windows".into(),
-            app: format!("transclip/{}", env!("CARGO_PKG_VERSION")),
-            caps: vec!["clip".into()],
-            role: "full".into(),
-        };
-        let listen = std::net::SocketAddr::from(([0, 0, 0, 0], config.port));
-        match PeerManager::start(ManagerConfig::new(local, gk, listen), seen_rx).await {
-            Ok((mgr, mut events)) => {
-                let beacon = BeaconService::start(
-                    BeaconConfig::lan(
-                        gid,
-                        device_id,
-                        config.port,
-                        Platform::Windows,
-                        config.device_name.clone(),
-                    ),
-                    seen_tx.clone(),
-                );
-                let mdns = MdnsService::start(
-                    &MdnsConfig {
-                        gid,
-                        device_id,
-                        tcp_port: config.port,
-                        platform: Platform::Windows,
-                        name: config.device_name.clone(),
-                    },
-                    seen_tx.clone(),
-                );
-                if let Err(e) = &mdns {
-                    tracing::warn!(error = %e, "mDNS unavailable, relying on beacons");
-                }
-                match beacon {
-                    Ok(b) => {
-                        let mgr = Arc::new(mgr);
-                        let mut watch = mgr.status();
-                        let _ = hub.peers.set(mgr.status());
-                        let hub2 = Arc::clone(&hub);
-                        tokio::spawn(async move {
-                            while watch.changed().await.is_ok() {
-                                let online = watch
-                                    .borrow()
-                                    .iter()
-                                    .filter(|p| p.state == PeerState::Online)
-                                    .count();
-                                hub2.update(|s| s.online = online);
-                                if let Some(ipc) = hub2.ipc.get() {
-                                    ipc.publish(Event {
-                                        event: "peers_changed".into(),
-                                        data: hub2.peers_json(),
-                                    });
-                                }
-                            }
-                        });
-                        let sink = Arc::new(WindowsSink::new(ui.hwnd(), Arc::clone(&paused)));
-                        let (clip_sync, mut clip_events) = ClipboardSync::new(
-                            Arc::clone(&mgr),
-                            sink,
-                            device_id,
-                            ClipConfig::default(),
-                        );
-                        let pump_sync = clip_sync.clone();
-                        tokio::spawn(async move {
-                            while let Some(ev) = events.recv().await {
-                                // Clipboard frames are consumed; other events need no action yet.
-                                let _ = pump_sync.handle_event(ev).await;
-                            }
-                        });
-                        tokio::spawn(async move {
-                            while let Some(ev) = clip_events.recv().await {
-                                tracing::debug!(event = ?ev, "clipboard event");
-                            }
-                        });
-                        sync = Some(clip_sync);
-                        started = Some((mgr, b, mdns.ok()));
-                    }
-                    Err(e) => {
-                        tracing::error!(error = %e, "cannot start discovery");
-                        hub.update(|s| s.error = true);
-                    }
-                }
-            }
-            Err(e) => {
-                tracing::error!(error = %e, "cannot listen on the TCP port");
-                hub.update(|s| s.error = true);
-                ui.send(ToUi::Notify {
-                    title: strings::APP_NAME.into(),
-                    text: format!("Port {} tidak dapat dipakai", config.port),
-                });
-            }
-        }
+    let mut running: Option<Running> = None;
+
+    // (Re)load the group key from disk and (re)start the engine accordingly.
+    let reload = |hub: &Arc<Hub>| -> Option<GroupKey> {
+        let gk = Secrets::load_or_create(&hub.paths.secrets_file())
+            .ok()
+            .and_then(|s| s.group_key);
+        hub.update(|s| {
+            s.paired = gk.is_some();
+            s.online = 0;
+        });
+        gk
+    };
+    if let Some(gk) = reload(&hub) {
+        running = start_engine(&hub, &ui, gk, &paused).await;
     }
 
     while let Some(cmd) = commands.recv().await {
         match cmd {
             ToEngine::Quit => break,
+            ToEngine::Reload => {
+                if let Some(r) = running.take() {
+                    r.stop().await;
+                }
+                *hub.peers.lock().unwrap_or_else(PoisonError::into_inner) = None;
+                if let Some(gk) = reload(&hub) {
+                    running = start_engine(&hub, &ui, gk, &paused).await;
+                    ui.send(ToUi::Notify {
+                        title: strings::APP_NAME.into(),
+                        text: "Grup siap dipakai".into(),
+                    });
+                }
+            }
             ToEngine::OpenDownloads => {
                 let dir = if config.download_dir.is_empty() {
                     crate::paths::default_receive_dir().ok()
@@ -291,9 +417,9 @@ pub async fn run(input: HostInput, ui: UiHandle, mut commands: mpsc::UnboundedRe
                     Clip::Text(_) => config.sync_text,
                     Clip::Image { .. } => config.sync_images,
                 };
-                if let (Some(sync), true, false) = (&sync, allowed, paused.load(Ordering::Relaxed))
+                if let (Some(r), true, false) = (&running, allowed, paused.load(Ordering::Relaxed))
                 {
-                    if let Err(e) = sync.submit_local(clip).await {
+                    if let Err(e) = r.sync.submit_local(clip).await {
                         tracing::warn!(error = %e, "clipboard item not sent");
                     }
                 }
@@ -312,7 +438,8 @@ pub async fn run(input: HostInput, ui: UiHandle, mut commands: mpsc::UnboundedRe
             }
         }
     }
-    if let Some((mgr, _beacon, _mdns)) = started {
-        mgr.stop().await;
+    if let Some(r) = running {
+        r.beacon.announce_now();
+        r.stop().await;
     }
 }

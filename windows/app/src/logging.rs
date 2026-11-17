@@ -6,7 +6,9 @@ use std::str::FromStr;
 use anyhow::{Context, Result};
 use tracing_appender::non_blocking::WorkerGuard;
 use tracing_appender::rolling::{RollingFileAppender, Rotation};
-use tracing_subscriber::filter::LevelFilter;
+use tracing_subscriber::filter::{LevelFilter, Targets};
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
 
 /// Number of daily log files kept.
 const KEEP_FILES: usize = 14;
@@ -21,11 +23,20 @@ pub fn init(dir: &Path, level: &str) -> Result<WorkerGuard> {
         .build(dir)
         .context("cannot open log file")?;
     let (writer, guard) = tracing_appender::non_blocking(appender);
-    let filter = LevelFilter::from_str(level).unwrap_or(LevelFilter::INFO);
-    tracing_subscriber::fmt()
-        .with_writer(writer)
-        .with_ansi(false)
-        .with_max_level(filter)
+    let level = LevelFilter::from_str(level).unwrap_or(LevelFilter::INFO);
+    // Our own crates log at the chosen level; dependencies (mDNS in particular) only warn.
+    let filter = Targets::new()
+        .with_target("transclip", level)
+        .with_target("engine", level)
+        .with_target("proto", level)
+        .with_default(LevelFilter::WARN);
+    tracing_subscriber::registry()
+        .with(
+            tracing_subscriber::fmt::layer()
+                .with_writer(writer)
+                .with_ansi(false),
+        )
+        .with(filter)
         .try_init()
         .map_err(|e| anyhow::anyhow!("logger already set: {e}"))?;
     Ok(guard)

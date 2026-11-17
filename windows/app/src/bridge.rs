@@ -42,7 +42,7 @@ pub enum ToUi {
 }
 
 /// UI to engine.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ToEngine {
     /// Pause or resume synchronisation.
     SetPaused(bool),
@@ -56,6 +56,8 @@ pub enum ToEngine {
     SendFiles,
     /// The OS clipboard changed and holds this shareable item.
     LocalClip(engine::clip::Clip),
+    /// The group key changed on disk: restart the engine.
+    Reload,
     /// Shut down.
     Quit,
 }

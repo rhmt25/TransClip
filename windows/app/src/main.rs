@@ -129,7 +129,6 @@ fn run() -> Result<i32> {
         config: cfg,
         paths,
         device_id: secrets.device_id,
-        group_key: secrets.group_key,
         commands: quit_tx.clone(),
     };
     let hold = cli.hold_secs;

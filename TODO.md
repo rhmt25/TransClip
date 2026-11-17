@@ -230,19 +230,19 @@ Baca `CLAUDE.md` dulu. Spesifikasi: `docs/PLAN.md` (arsitektur) dan `docs/PROTOC
 * **Lakukan:** padanan P2-01…P2-03 dengan coroutine. `NsdManager` register+discover+resolve (serialisasi resolve, satu per waktu — keterbatasan API lama); `MulticastLock`; `NetworkCallback`.
 * **Selesai jika:** unit test JVM untuk Link (dengan stream pipa) dan aturan dial; **[MANUAL]** HP dan PC (daemon P2) saling terhubung, status tampil di log kedua sisi.
 
-### [ ] P3-03 · SyncService & notifikasi
+### [~] P3-03 · SyncService & notifikasi
 * **Dep:** P3-02
 * **File:** `service/SyncService.kt`, `service/BootReceiver.kt`
 * **Lakukan:** PLAN §6.5: FGS `connectedDevice`, notifikasi ongoing + aksi (Kirim clipboard, Jeda, Putuskan), start saat boot bila diaktifkan, `AppState` StateFlow.
 * **Selesai jika:** **[MANUAL]** service bertahan saat app di-swipe dari recents dan saat layar mati 30 menit; reboot → service jalan.
 
-### [ ] P3-04 · Clipboard writer & riwayat
+### [~] P3-04 · Clipboard writer & riwayat
 * **Dep:** P3-03
 * **File:** `clip/ClipboardWriter.kt`, `storage/MediaWriter.kt`, `storage/HistoryRepo.kt`
 * **Lakukan:** implementasi `ClipboardSink` Android (PLAN §6.4 bagian menulis), penanda echo, simpan riwayat ≤100 item (gambar mereferensikan URI MediaStore).
 * **Selesai jika:** **[MANUAL]** salin teks & screenshot di PC → muncul di clipboard HP dan riwayat Gboard (sesuai hasil S1) dalam < 1 s.
 
-### [ ] P3-05 · Jalur capture manual: Activity, Tile, notifikasi
+### [~] P3-05 · Jalur capture manual: Activity, Tile, notifikasi
 * **Dep:** P3-04
 * **File:** `clip/ClipCaptureActivity.kt`, `clip/SendClipTileService.kt`
 * **Lakukan:** Activity transparan (theme `Translucent.NoTitleBar`, `excludeFromRecents`, `noHistory`, `taskAffinity=""`) membaca di `onWindowFocusChanged(true)`; cek `EXTRA_IS_SENSITIVE` & penanda echo; kirim via service; toast singkat "Terkirim ke n perangkat". Tile & aksi notifikasi memanggilnya (Android 14+: gunakan `PendingIntent` untuk `startActivityAndCollapse`).
@@ -255,7 +255,7 @@ Baca `CLAUDE.md` dulu. Spesifikasi: `docs/PLAN.md` (arsitektur) dan `docs/PROTOC
 * **Selesai jika:** **[MANUAL]** di app yang diuji di S2, menyalin teks terkirim otomatis tanpa mengganggu pengetikan; mematikan toggle menghentikan semua pembacaan.
 * *Lewati dan tandai `[x] (dibatalkan: lihat DECISIONS)` bila S2 memutuskan tidak dipakai.*
 
-### [ ] P3-07 · UI dasar: Onboarding & Home
+### [~] P3-07 · UI dasar: Onboarding & Home
 * **Dep:** P3-03
 * **File:** `ui/OnboardingScreen.kt`, `ui/HomeScreen.kt`, `ui/theme/*`
 * **Lakukan:** Onboarding bertahap (notifikasi → nearby devices → baterai → auto-capture opsional), setiap langkah bisa dilewati dengan penjelasan konsekuensi; Home: status, daftar peer (nama, platform, transport, status), 5 item terakhir, tombol *Kirim clipboard*. Material 3, dynamic color, mode gelap.
