@@ -9,7 +9,7 @@ Baca `CLAUDE.md` dulu. Spesifikasi: `docs/PLAN.md` (arsitektur) dan `docs/PROTOC
 * **Dep** = task yang harus selesai lebih dulu.
 * **Selesai jika** = kriteria penerimaan; semua harus terpenuhi.
 
-**Progres:** P0 ◐ (spike & Android SDK menunggu pengguna) · P1 ◐ (sisi Rust selesai; Kotlin menunggu) · P2 ☐ · P3 ☐ · P4 ☐ · P5 ☐ · P6 ☐ · P7 ☐ · P8 ☐
+**Progres:** P0 ◐ (spike & Android SDK menunggu pengguna) · P1 ✔ (Rust + Kotlin lulus test vector dan interop langsung) · P2 ☐ · P3 ☐ · P4 ☐ · P5 ☐ · P6 ☐ · P7 ☐ · P8 ☐
 
 ---
 
@@ -45,10 +45,12 @@ Baca `CLAUDE.md` dulu. Spesifikasi: `docs/PLAN.md` (arsitektur) dan `docs/PROTOC
 * **Lakukan:** buat struktur `windows/` sesuai PLAN §3: workspace dengan member `crates/proto`, `crates/engine`, `crates/tvgen`, `app`. `.cargo/config.toml` (crt-static), profil release (PLAN §5.7), `rust-toolchain.toml` (channel stable), `rustfmt.toml`, lint `clippy` di `[workspace.lints]` (`unwrap_used = "warn"` di non-test).
 * **Selesai jika:** `cargo build --workspace` dan `cargo clippy --workspace -- -D warnings` lulus; `app` menghasilkan `transclip.exe` yang langsung keluar.
 
-### [ ] P0-05 · Kerangka proyek Android
+### [~] P0-05 · Kerangka proyek Android
 * **Dep:** P0-03
 * **Lakukan:** buat `android/` dengan Gradle Kotlin DSL, version catalog `gradle/libs.versions.toml`, modul `:proto` (plugin `kotlin("jvm")` + serialization) dan `:app` (Compose, minSdk 29). Gradle wrapper ikut di-commit. Aktivitas kosong "TransClip".
 * **Selesai jika:** `./gradlew :proto:test :app:assembleDebug` lulus; APK terinstal dan terbuka di HP (**[MANUAL]** konfirmasi pengguna).
+* **Status (2026-11-18):** Gradle 8.14.3 + wrapper, version catalog dan modul `:proto` selesai (29 test hijau). Modul `:app` (Compose) belum dibuat karena menunggu Android SDK (lihat P0-03).
+
 
 ### [ ] P0-06 · Spike S1 — Gambar ke clipboard Android & Gboard [MANUAL]
 * **Dep:** P0-05
@@ -129,29 +131,29 @@ Baca `CLAUDE.md` dulu. Spesifikasi: `docs/PLAN.md` (arsitektur) dan `docs/PROTOC
 * **Lakukan:** `SeenCache` (LRU 1024, TTL 10 menit, waktu diinjeksi untuk test), `ConflictClock` (aturan `ts` + `origin`, PROTOCOL §9.2).
 * **Selesai jika:** unit test kasus: duplikat, kedaluwarsa TTL, ts sama beda origin, ts mundur.
 
-### [ ] P1-08 · Kotlin `:proto`: pesan & codec frame
+### [x] P1-08 · Kotlin `:proto`: pesan & codec frame
 * **Dep:** P0-05, P1-06
 * **File:** `android/proto/src/main/kotlin/io/transclip/proto/{Ids.kt,Messages.kt,FrameCodec.kt}`
 * **Lakukan:** padanan P1-01 + P1-02 (kotlinx.serialization dengan class discriminator `t`, `ignoreUnknownKeys = true`, tipe tak dikenal → `Unknown`). API blocking berbasis `InputStream/OutputStream`.
 * **Selesai jika:** test JUnit lulus terhadap `frames.json`, plus kasus batas yang sama seperti P1-02.
 
-### [ ] P1-09 · Kotlin `:proto`: record layer & handshake
+### [x] P1-09 · Kotlin `:proto`: record layer & handshake
 * **Dep:** P1-08
 * **File:** `RecordLayer.kt`, `Handshake.kt`, `GroupKey.kt`
 * **Lakukan:** BouncyCastle `X25519Agreement`, `ChaCha20Poly1305` (`ChaCha7539Engine` + AEAD BC), `HKDFBytesGenerator(SHA256Digest)`, HMAC JCA; `MessageDigest.isEqual` untuk compare; `SecureInputStream`/`SecureOutputStream`.
 * **Selesai jika:** test lulus terhadap `handshake.json` dan `records.json`; test handshake dua thread via `PipedInputStream/PipedOutputStream` berhasil.
 
-### [ ] P1-10 · Kotlin `:proto`: beacon, pairing, path, dedupe
+### [x] P1-10 · Kotlin `:proto`: beacon, pairing, path, dedupe
 * **Dep:** P1-08
 * **Selesai jika:** test lulus terhadap `beacon.json` dan `paths.json`; `SeenCache` & `ConflictClock` dengan test yang sama seperti P1-07.
 
-### [ ] P1-11 · Tes interop langsung Rust ↔ Kotlin
+### [x] P1-11 · Tes interop langsung Rust ↔ Kotlin
 * **Dep:** P1-04, P1-09
 * **File:** `windows/crates/proto/examples/echo_peer.rs`, `android/proto/src/test/.../LiveInteropTest.kt`
 * **Lakukan:** `echo_peer` = responder TCP di port acak (dicetak ke stdout) dengan GK dari argumen, mengembalikan setiap frame. Test Kotlin menjalankan biner itu (path dari env `TRANSCLIP_ECHO_PEER`; **skip** bila env tidak ada), handshake sebagai initiator, kirim 100 frame acak, verifikasi balasan.
 * **Selesai jika:** test lulus secara lokal; dokumentasikan cara menjalankannya di `CLAUDE.md` bagian perintah.
 
-### [ ] P1-12 · Review protokol
+### [x] P1-12 · Review protokol
 * **Dep:** P1-01 … P1-11
 * **Lakukan:** periksa ulang implementasi vs `PROTOCOL.md` baris per baris; perbaiki ketidakcocokan (di kode atau dokumen + DECISIONS).
 * **Selesai jika:** checklist kecocokan ditulis di PR/commit message; semua test hijau.

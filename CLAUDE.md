@@ -75,3 +75,8 @@ adb logcat -s TransClip
 ## Lingkungan
 * Host pengembangan: Windows 11, PowerShell. Rust & Android SDK dipasang di P0-02/P0-03.
 * Bukan Play Store: `.apk` didistribusikan langsung.
+
+## Catatan lingkungan (Windows PowerShell 5.1)
+* Jangan membaca/menulis file berisi karakter non-ASCII dengan Get-Content/Set-Content tanpa -Encoding UTF8; hasilnya rusak (mojibake). Pakai Edit/Write, atau Python dengan encoding utf-8.
+* Jalankan Gradle dari android/ dengan .\gradlew.bat; JDK 23 dipakai, bytecode target 17.
+

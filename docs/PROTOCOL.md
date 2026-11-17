@@ -291,7 +291,8 @@ Folder `docs/test-vectors/` WAJIB berisi file JSON yang dihasilkan oleh `cargo r
 * `frames.json` — daftar `{name, header, payload_hex, encoded_hex}`.
 * `handshake.json` — input tetap (GK, eph private keys, nonces) dan output (`GID`, `TH`, `K_i2r`, `K_r2i`, `mac_r`, `mac_i`).
 * `records.json` — kunci, counter, plaintext, ciphertext.
-* `beacon.json` — field dan byte hasil.
+* `beacon.json` — field dan byte hasil (valid dan invalid).
+* `pairing.json` — URI pairing beserta field hasil parse (valid dan invalid).
 * `paths.json` — daftar `relative_path` beserta hasil `valid: true/false`.
 
 Kedua implementasi WAJIB punya unit test yang membaca file ini dan mencocokkan hasil byte-per-byte.
