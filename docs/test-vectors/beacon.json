@@ -1,0 +1,62 @@
+{
+  "invalid": [
+    {
+      "encoded_hex": "54434c4201a1a1a1a1a1a1a1a1b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b20001010000000000000000000000",
+      "name": "too_short"
+    },
+    {
+      "encoded_hex": "58434c4201a1a1a1a1a1a1a1a1b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b200010100000000000000000000000078",
+      "name": "bad_magic"
+    },
+    {
+      "encoded_hex": "54434c4202a1a1a1a1a1a1a1a1b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b200010100000000000000000000000078",
+      "name": "bad_version"
+    },
+    {
+      "encoded_hex": "54434c4201a1a1a1a1a1a1a1a1b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b200010900000000000000000000000078",
+      "name": "bad_platform"
+    },
+    {
+      "encoded_hex": "54434c4201a1a1a1a1a1a1a1a1b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2000101000000000000000000000000786161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161",
+      "name": "name_too_long"
+    },
+    {
+      "encoded_hex": "54434c4201a1a1a1a1a1a1a1a1b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b200010100000000000000000000000078ff",
+      "name": "name_not_utf8"
+    }
+  ],
+  "valid": [
+    {
+      "device_id_hex": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
+      "encoded_hex": "54434c4201a1a1a1a1a1a1a1a1b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2bacc01000000000000000000000000",
+      "gid_hex": "a1a1a1a1a1a1a1a1",
+      "name": "",
+      "platform": "windows",
+      "port": 47820
+    },
+    {
+      "device_id_hex": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
+      "encoded_hex": "54434c4201a1a1a1a1a1a1a1a1b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2bacc010000000000000000000000005043205261686d6174",
+      "gid_hex": "a1a1a1a1a1a1a1a1",
+      "name": "PC Rahmat",
+      "platform": "windows",
+      "port": 47820
+    },
+    {
+      "device_id_hex": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
+      "encoded_hex": "54434c4201a1a1a1a1a1a1a1a1b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2c35002000000000000000000000000506978656c2038",
+      "gid_hex": "a1a1a1a1a1a1a1a1",
+      "name": "Pixel 8",
+      "platform": "android",
+      "port": 50000
+    },
+    {
+      "device_id_hex": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
+      "encoded_hex": "54434c4201a1a1a1a1a1a1a1a1b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2000102000000000000000000000000e697a5e69cace8aa9e20f09f9880",
+      "gid_hex": "a1a1a1a1a1a1a1a1",
+      "name": "日本語 😀",
+      "platform": "android",
+      "port": 1
+    }
+  ]
+}

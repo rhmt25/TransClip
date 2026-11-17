@@ -708,6 +708,10 @@ version = "0.1.0"
 [[package]]
 name = "tvgen"
 version = "0.1.0"
+dependencies = [
+ "proto",
+ "serde_json",
+]
 
 [[package]]
 name = "typenum"

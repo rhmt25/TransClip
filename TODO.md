@@ -9,13 +9,13 @@ Baca `CLAUDE.md` dulu. Spesifikasi: `docs/PLAN.md` (arsitektur) dan `docs/PROTOC
 * **Dep** = task yang harus selesai lebih dulu.
 * **Selesai jika** = kriteria penerimaan; semua harus terpenuhi.
 
-**Progres:** P0 ☐ · P1 ☐ · P2 ☐ · P3 ☐ · P4 ☐ · P5 ☐ · P6 ☐ · P7 ☐ · P8 ☐
+**Progres:** P0 ◐ (spike & Android SDK menunggu pengguna) · P1 ◐ (sisi Rust selesai; Kotlin menunggu) · P2 ☐ · P3 ☐ · P4 ☐ · P5 ☐ · P6 ☐ · P7 ☐ · P8 ☐
 
 ---
 
 ## P0 — Persiapan & Spike Risiko
 
-### [ ] P0-01 · Inisialisasi repository
+### [x] P0-01 · Inisialisasi repository
 * **Lakukan:**
   * `git init`, branch `main`.
   * `.gitignore`: `Clipdeck/`, `windows/target/`, `android/.gradle/`, `android/build/`, `android/**/build/`, `android/local.properties`, `android/keystore.properties`, `*.jks`, `*.keystore`, `.idea/`, `*.iml`, `.DS_Store`, `Thumbs.db`.
@@ -24,21 +24,23 @@ Baca `CLAUDE.md` dulu. Spesifikasi: `docs/PLAN.md` (arsitektur) dan `docs/PROTOC
   * Commit awal berisi dokumen yang sudah ada.
 * **Selesai jika:** `git status` bersih; `Clipdeck/` tidak ter-track.
 
-### [ ] P0-02 · Toolchain Windows (Rust) [MANUAL]
+### [x] P0-02 · Toolchain Windows (Rust) [MANUAL]
 * **Lakukan:**
   * Minta pengguna memasang: `rustup` (toolchain `stable-x86_64-pc-windows-msvc`) dan **Visual Studio Build Tools** (workload "Desktop development with C++", Windows 11 SDK).
   * Verifikasi: `rustc --version`, `cargo --version`, `rustup show`.
   * Catat versi di `docs/DECISIONS.md`.
 * **Selesai jika:** `cargo new --bin hello` di folder scratch berhasil `cargo run`.
 
-### [ ] P0-03 · Toolchain Android [MANUAL]
+### [~] P0-03 · Toolchain Android [MANUAL]
 * **Lakukan:**
   * Minta pengguna memasang Android Studio (atau command-line tools) + JDK 17 (bawaan Android Studio), SDK Platform API terbaru, Build-Tools, Platform-Tools.
   * Set `ANDROID_HOME` dan tambahkan `platform-tools` ke PATH.
   * Minta pengguna mengaktifkan USB debugging di ≥1 HP dan memverifikasi `adb devices`.
 * **Selesai jika:** `adb devices` menampilkan perangkat; versi dicatat di `docs/DECISIONS.md`.
+* **Status (2026-11-18):** cmdline-tools + JDK 23 ada; `sdkmanager --licenses` BELUM diterima. Pengguna perlu menjalankan sendiri: `! & "$env:LOCALAPPDATA\Android\Sdk\cmdline-tools\latest\bin\sdkmanager.bat" --sdk_root="$env:LOCALAPPDATA\Android\Sdk" --licenses` lalu `platform-tools`, `platforms;android-35`, `build-tools;35.0.0`. Rust 1.100.0 + VS Build Tools 2022 (MSVC) sudah terpasang.
 
-### [ ] P0-04 · Kerangka workspace Rust
+
+### [x] P0-04 · Kerangka workspace Rust
 * **Dep:** P0-02
 * **Lakukan:** buat struktur `windows/` sesuai PLAN §3: workspace dengan member `crates/proto`, `crates/engine`, `crates/tvgen`, `app`. `.cargo/config.toml` (crt-static), profil release (PLAN §5.7), `rust-toolchain.toml` (channel stable), `rustfmt.toml`, lint `clippy` di `[workspace.lints]` (`unwrap_used = "warn"` di non-test).
 * **Selesai jika:** `cargo build --workspace` dan `cargo clippy --workspace -- -D warnings` lulus; `app` menghasilkan `transclip.exe` yang langsung keluar.
@@ -82,7 +84,7 @@ Baca `CLAUDE.md` dulu. Spesifikasi: `docs/PLAN.md` (arsitektur) dan `docs/PROTOC
 
 > P1-01…P1-07 (Rust) dan P1-08…P1-12 (Kotlin) boleh paralel setelah P1-06 menghasilkan test vector.
 
-### [ ] P1-01 · Rust `proto`: tipe dasar & JSON pesan
+### [x] P1-01 · Rust `proto`: tipe dasar & JSON pesan
 * **Dep:** P0-04
 * **File:** `windows/crates/proto/src/{lib.rs,ids.rs,msg.rs,error.rs}`
 * **Lakukan:**
@@ -91,37 +93,37 @@ Baca `CLAUDE.md` dulu. Spesifikasi: `docs/PLAN.md` (arsitektur) dan `docs/PROTOC
   * `ProtoError` (thiserror): `Limit`, `BadHeader`, `Auth`, `Io`, `Version`, `Closed`.
 * **Selesai jika:** test round-trip serde untuk setiap varian; JSON tak dikenal → `Unknown`; field ekstra diabaikan.
 
-### [ ] P1-02 · Rust `proto`: codec frame
+### [x] P1-02 · Rust `proto`: codec frame
 * **Dep:** P1-01
 * **File:** `proto/src/frame.rs`
 * **Lakukan:** `encode_frame(&Header, &[u8]) -> Vec<u8>`; decoder inkremental `FrameDecoder::push(&[u8]) -> Result<Vec<Frame>>` (tidak mengasumsikan frame utuh per pembacaan); batas header 1..=65536 dan batas payload per tipe (PROTOCOL §10); varian async `read_frame`/`write_frame` untuk `AsyncRead/AsyncWrite` (tokio).
 * **Selesai jika:** test: frame terpotong per byte, banyak frame dalam satu buffer, header 0 / 65537, size melebihi batas, JSON rusak → error yang tepat; property test (`proptest`) encode→decode identik.
 
-### [ ] P1-03 · Rust `proto`: record layer
+### [x] P1-03 · Rust `proto`: record layer
 * **Dep:** P1-02
 * **File:** `proto/src/record.rs`
 * **Lakukan:** `RecordWriter`/`RecordReader` (ChaCha20-Poly1305, nonce `0^4 || u64 BE`, counter per arah, batas L 17..=65552), adaptor `SecureStream<T: AsyncRead+AsyncWrite>` yang mengimplementasikan `AsyncRead + AsyncWrite` sehingga codec frame bisa dipakai di atasnya. Flush memaksa record dikirim.
 * **Selesai jika:** test: round-trip, tag diubah 1 bit → error, counter berurutan, record terpotong, L di luar batas.
 
-### [ ] P1-04 · Rust `proto`: handshake
+### [x] P1-04 · Rust `proto`: handshake
 * **Dep:** P1-03
 * **File:** `proto/src/handshake.rs`, `proto/src/group.rs`
 * **Lakukan:** `GroupKey` (zeroize on drop), `group_id(&GroupKey)`, `initiate(stream, gk) -> SecureStream`, `respond(stream, gk) -> SecureStream` persis PROTOCOL §6 (timeout 10 s, constant-time compare, tolak DH nol, `wrong_group`). Fungsi derivasi murni `derive(…)` dipisah agar bisa diuji dengan input tetap.
 * **Selesai jika:** test: dua sisi di `tokio::io::duplex` berhasil dan saling bertukar frame; GK berbeda → keduanya gagal tanpa panic; `gid` salah → `wrong_group`; hs dimodifikasi → gagal; timeout bekerja.
 
-### [ ] P1-05 · Rust `proto`: beacon, pairing URI, validasi path
+### [x] P1-05 · Rust `proto`: beacon, pairing URI, validasi path
 * **Dep:** P1-01
 * **File:** `proto/src/{beacon.rs,pairing.rs,path.rs}`
 * **Lakukan:** encode/decode beacon (PROTOCOL §4.2); `PairingInfo` build/parse URI (§3.1, termasuk kedaluwarsa); `validate_relative_path(&str) -> Result<Vec<String>, PathError>` (§9.3) dan `sanitize_file_name` untuk nama tujuan + penamaan ` (n)`.
 * **Selesai jika:** test mencakup setiap aturan penolakan path (minimal 30 kasus), beacon dengan nama UTF-8 multi-byte, URI dengan karakter khusus di nama grup.
 
-### [ ] P1-06 · `tvgen`: generator test vector
+### [x] P1-06 · `tvgen`: generator test vector
 * **Dep:** P1-02 … P1-05
 * **File:** `windows/crates/tvgen/src/main.rs`
 * **Lakukan:** hasilkan `docs/test-vectors/{frames,handshake,records,beacon,paths}.json` dengan input deterministik (seed tetap, kunci tetap). Tambahkan test di `proto` yang membaca file itu dan memverifikasi (agar file tidak basi).
 * **Selesai jika:** `cargo run -p tvgen` menghasilkan file stabil (dijalankan 2× → diff kosong); file di-commit.
 
-### [ ] P1-07 · Rust `proto`: dedupe & konflik
+### [x] P1-07 · Rust `proto`: dedupe & konflik
 * **Dep:** P1-01
 * **File:** `proto/src/sync_rules.rs`
 * **Lakukan:** `SeenCache` (LRU 1024, TTL 10 menit, waktu diinjeksi untuk test), `ConflictClock` (aturan `ts` + `origin`, PROTOCOL §9.2).

@@ -1,0 +1,78 @@
+{
+  "conflict_names": [
+    {
+      "n": 1,
+      "name": "a.txt",
+      "result": "a (1).txt"
+    },
+    {
+      "n": 2,
+      "name": "archive.tar.gz",
+      "result": "archive.tar (2).gz"
+    },
+    {
+      "n": 1,
+      "name": ".bashrc",
+      "result": ".bashrc (1)"
+    },
+    {
+      "n": 3,
+      "name": "noext",
+      "result": "noext (3)"
+    }
+  ],
+  "invalid": [
+    "",
+    "/",
+    "/etc/passwd",
+    "a//b",
+    "a/",
+    ".",
+    "..",
+    "../x",
+    "a/../b",
+    "a/./b",
+    "a/..",
+    "a\\b",
+    "C:",
+    "C:/x",
+    "a:b",
+    "a<b",
+    "a>b",
+    "a\"b",
+    "a|b",
+    "a?b",
+    "a*b",
+    "a\u0000b",
+    "a\nb",
+    "ab",
+    "name.",
+    "name ",
+    "dir./x",
+    "CON",
+    "con",
+    "nul.txt",
+    "Aux.tar.gz",
+    "dir/PRN",
+    "COM1",
+    "com9.txt",
+    "LPT1",
+    "lpt5.log",
+    "CON .txt"
+  ],
+  "valid": [
+    "a",
+    "a.txt",
+    "dir/a.txt",
+    "photos/2026/img 01.jpg",
+    "déjà/vu.txt",
+    "日本語/ファイル.md",
+    ".hidden",
+    "dir/.gitignore",
+    "con_x",
+    "COM10",
+    "LPT0",
+    "a b/c d",
+    "a-b_c(1)/d[2].txt"
+  ]
+}

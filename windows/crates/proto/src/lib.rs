@@ -12,5 +12,6 @@ pub mod pairing;
 pub mod path;
 pub mod record;
 pub mod sync_rules;
+pub mod vectors;
 
 pub use error::{ProtoError, Result};
