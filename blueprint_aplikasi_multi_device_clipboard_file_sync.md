@@ -56,7 +56,7 @@ Ekosistem aplikasi desktop dan mobile yang **100% mandiri** (tanpa aplikasi piha
 | `text` | `id`, `ts`, `hash` | UTF-8 | Clipboard teks |
 | `image` | `id`, `ts`, `mime`, `hash`, `w`, `h` | PNG | Clipboard gambar |
 | `announce` / `pull` | `id`, `kind`, `size`, `hash` | – | Item besar ditarik sesuai kebutuhan |
-| `file_offer` | `xfer_id`, `name`, `relative_path`, `size`, `sha256`, `mtime` | – | Awal transfer file |
+| `file_offer` | `xfer_id`, `name`, `relative_path`, `bytes`, `sha256`, `mtime` | – | Awal transfer file |
 | `file_chunk` | `xfer_id`, `offset` | ≤64 KB | Data file |
 | `file_done` / `file_cancel` | `xfer_id` | – | Akhir / batal |
 | `ack`, `ping`, `pong` | – | – | Kontrol |

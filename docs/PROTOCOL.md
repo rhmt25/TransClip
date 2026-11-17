@@ -221,7 +221,7 @@ Alur Bluetooth: sama, tetapi `file_stream` / `file_chunk` / `file_end` dikirim d
 
 | `t` | Field | Payload | Keterangan |
 |---|---|---|---|
-| `file_offer` | `xfer_id`, `batch_id`, `batch_name`, `batch_count`, `batch_bytes`, `kind` (`file`/`dir`), `relative_path`, `size`, `sha256`, `mtime` | – | Satu per entri. `relative_path` memakai `/` sebagai pemisah, relatif terhadap akar batch |
+| `file_offer` | `xfer_id`, `batch_id`, `batch_name`, `batch_count`, `batch_bytes`, `kind` (`file`/`dir`), `relative_path`, `bytes` (ukuran file; BUKAN `size`), `sha256`, `mtime` | – | Satu per entri. `relative_path` memakai `/` sebagai pemisah, relatif terhadap akar batch |
 | `file_accept` | `xfer_id`, `offset` | – | `offset` > 0 berarti lanjut (resume) |
 | `file_reject` | `xfer_id`, `reason` (`quota`, `path`, `disk_full`, `disabled`) | – | |
 | `file_stream` | `xfer_id`, `offset` | – | Pembuka aliran |
@@ -236,7 +236,7 @@ Aturan:
 * Penerima menulis ke `<nama>.transclip-part`, me-rename setelah hash cocok. Bila nama tujuan sudah ada → tambah ` (1)`, ` (2)`, ….
 * Resume: bila koneksi putus, pengirim mengulang `file_offer` dengan `xfer_id` sama; penerima menjawab `file_accept` dengan `offset` = ukuran file `.transclip-part` yang ada.
 * Hash diverifikasi atas **seluruh** file. Hash salah → hapus file part, `file_result ok:false reason:"hash"`, pengirim mencoba ulang **sekali** dari offset 0.
-* Validasi `relative_path` (WAJIB, di penerima): tolak jika kosong, absolut, mengandung `..` sebagai segmen, `\`, `:`, karakter kontrol, segmen yang diakhiri titik/spasi, nama reserved Windows (`CON`, `PRN`, `AUX`, `NUL`, `COM1`–`COM9`, `LPT1`–`LPT9`, case-insensitive, dengan atau tanpa ekstensi), atau panjang segmen > 255 byte. Penolakan → `file_reject reason:"path"`.
+* Validasi `relative_path` (WAJIB, di penerima): tolak jika: kosong; diawali `/` (absolut); ada segmen kosong (`a//b`); ada segmen `.` atau `..`; mengandung `\`, `:`, `<`, `>`, `"`, `|`, `?`, `*` atau karakter kontrol (U+0000–U+001F, U+007F); ada segmen yang diakhiri titik atau spasi; ada segmen dengan nama reserved Windows (`CON`, `PRN`, `AUX`, `NUL`, `COM1`–`COM9`, `LPT1`–`LPT9`; case-insensitive; bagian sebelum titik pertama, dengan atau tanpa ekstensi); panjang segmen > 255 byte UTF-8; atau panjang total > 4096 byte UTF-8. Penolakan → `file_reject reason:"path"`.
 
 ### 9.4 Rotasi kunci grup
 

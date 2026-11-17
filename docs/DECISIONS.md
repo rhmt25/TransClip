@@ -41,3 +41,11 @@ Format: `D-<nomor> · <tanggal> · <judul>` → Keputusan, Alasan, Alternatif ya
 * **Keputusan:** default `Downloads\TransClip` (Windows, via `FOLDERID_Downloads`) dan `Download/TransClip` (Android, via `MediaStore`). Pengguna dapat memilih folder lain: Windows lewat dialog folder native (crate `rfd`), Android lewat SAF dengan izin persisten. Bila folder kustom tidak tersedia saat transfer, fallback ke default + notifikasi.
 * **Alasan:** permintaan pengguna. Fallback mencegah file hilang saat drive/izin berubah.
 * **Detail:** PLAN §4.5, TODO P5-09.
+
+### D-010 · 2026-11-18 · `file_offer.bytes` menggantikan `file_offer.size`
+* **Keputusan:** ukuran file di `file_offer` bernama `bytes`. Field `size` di header frame hanya berarti panjang payload.
+* **Alasan:** `size` ganda (ukuran file vs panjang payload) bentrok pada satu objek JSON dan membuat decoder salah membaca payload.
+
+### D-011 · 2026-11-18 · Record layer sebagai `SecureReader`/`SecureWriter`, bukan `AsyncRead`/`AsyncWrite`
+* **Keputusan:** lapisan record menyediakan `SecureReader::read_frame` dan `SecureWriter::write_frame` (async) di atas setengah-koneksi hasil `tokio::io::split`, tanpa implementasi trait `AsyncRead`/`AsyncWrite` manual.
+* **Alasan:** semua pembaca/penulis di engine hanya berbicara dalam frame; poll-state-machine manual rawan bug dan tidak memberi manfaat. Byte stream plaintext tetap kontinu lintas record seperti di PROTOCOL §7.
