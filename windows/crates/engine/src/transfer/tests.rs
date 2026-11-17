@@ -25,7 +25,6 @@ struct Node {
     events: mpsc::Receiver<TransferEvent>,
     seen: mpsc::Sender<PeerSeen>,
     pump: JoinHandle<()>,
-    dest: PathBuf,
 }
 
 fn mgr_cfg(id: u8, listen: SocketAddr) -> ManagerConfig {
@@ -75,7 +74,6 @@ async fn node(id: u8, port: u16, dest: &Path, cfg: TransferConfig) -> Node {
         events,
         seen: seen_tx,
         pump,
-        dest: dest.to_path_buf(),
     }
 }
 
@@ -160,7 +158,7 @@ async fn three_level_folder_arrives_identical() {
     std::fs::write(root.join("nol.dat"), b"").unwrap();
     std::fs::write(root.join("top.bin"), pattern(1_000_000)).unwrap();
 
-    let batches = batch_from_paths(&[root.clone()]).unwrap();
+    let batches = batch_from_paths(std::slice::from_ref(&root)).unwrap();
     let report =
         a.tm.send_batch(b.id, batches.into_iter().next().unwrap())
             .await
@@ -183,7 +181,7 @@ async fn loose_files_land_in_the_root_and_name_conflicts_get_a_counter() {
     let f = src.join("catatan.txt");
     std::fs::write(&f, b"isi").unwrap();
     for _ in 0..2 {
-        let batches = batch_from_paths(&[f.clone()]).unwrap();
+        let batches = batch_from_paths(std::slice::from_ref(&f)).unwrap();
         let r =
             a.tm.send_batch(b.id, batches.into_iter().next().unwrap())
                 .await
@@ -289,7 +287,9 @@ async fn disabled_and_oversized_files_are_refused() {
     let (a, b, src, dst) = pair_with(TransferConfig::default(), off).await;
     let f = src.join("x.bin");
     std::fs::write(&f, pattern(1000)).unwrap();
-    let batch = batch_from_paths(&[f.clone()]).unwrap().remove(0);
+    let batch = batch_from_paths(std::slice::from_ref(&f))
+        .unwrap()
+        .remove(0);
     let r = a.tm.send_batch(b.id, batch).await.unwrap();
     assert_eq!((r.ok, r.failed), (0, 1));
     assert!(walk(&dst).is_empty());
