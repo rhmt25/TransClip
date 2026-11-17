@@ -198,7 +198,7 @@ Baca `CLAUDE.md` dulu. Spesifikasi: `docs/PLAN.md` (arsitektur) dan `docs/PROTOC
 * **Lakukan:** message loop Win32, jendela message-only, `Shell_NotifyIconW` + menu (PLAN §5.5), `TaskbarCreated`, balloon notification; runtime tokio di thread lain; `bridge.rs` = channel dua arah UI↔engine (`PostMessageW` + `WM_APP`).
 * **Selesai jika:** **[MANUAL]** tray muncul, menu berfungsi (Keluar menutup bersih, Jeda mengubah ikon), restart Explorer → ikon kembali.
 
-### [ ] P2-07 · Daemon: clipboard listener & writer
+### [~] P2-07 · Daemon: clipboard listener & writer
 * **Dep:** P2-06, P2-04
 * **File:** `app/src/clipboard/{mod.rs,read.rs,write.rs,dib.rs,formats.rs}`
 * **Lakukan:** sesuai PLAN §5.3 (debounce, retry, format, rahasia, penanda echo, DIB↔PNG dengan alpha). Implementasikan `ClipboardSink`.

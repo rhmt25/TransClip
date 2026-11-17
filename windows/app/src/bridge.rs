@@ -54,6 +54,8 @@ pub enum ToEngine {
     OpenDownloads,
     /// The user wants to pick files to send.
     SendFiles,
+    /// The OS clipboard changed and holds this shareable item.
+    LocalClip(engine::clip::Clip),
     /// Shut down.
     Quit,
 }
@@ -71,6 +73,11 @@ impl UiHandle {
             hwnd: hwnd.0 as isize,
             tx,
         }
+    }
+
+    /// The window handle as an integer (for the clipboard owner).
+    pub fn hwnd(&self) -> isize {
+        self.hwnd
     }
 
     /// Queue a message and wake the UI thread.

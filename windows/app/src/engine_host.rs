@@ -1,7 +1,9 @@
 //! The tokio side: owns the engine and answers UI commands.
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 
+use engine::clip::{Clip, ClipConfig, ClipboardSync};
 use engine::discovery::beacon::{BeaconConfig, BeaconService};
 use engine::discovery::mdns::{MdnsConfig, MdnsService};
 use engine::link::LocalInfo;
@@ -12,6 +14,7 @@ use proto::ids::DeviceId;
 use tokio::sync::mpsc;
 
 use crate::bridge::{Status, ToEngine, ToUi, UiHandle};
+use crate::clipboard::write::WindowsSink;
 use crate::config::Config;
 use crate::paths::Paths;
 use crate::strings;
@@ -56,6 +59,8 @@ pub async fn run(input: HostInput, ui: UiHandle, mut commands: mpsc::UnboundedRe
     publish(&ui, &shared, |_| {});
 
     let (seen_tx, seen_rx) = mpsc::channel(64);
+    let paused = Arc::new(AtomicBool::new(config.paused));
+    let mut sync: Option<ClipboardSync> = None;
     let mut started: Option<(Arc<PeerManager>, BeaconService, Option<MdnsService>)> = None;
     if let Some(gk) = group_key {
         let gid = gk.group_id();
@@ -109,8 +114,26 @@ pub async fn run(input: HostInput, ui: UiHandle, mut commands: mpsc::UnboundedRe
                                 publish(&ui2, &shared2, |s| s.online = online);
                             }
                         });
-                        // Events are consumed by clipboard sync in task P2-07.
-                        tokio::spawn(async move { while events.recv().await.is_some() {} });
+                        let sink = Arc::new(WindowsSink::new(ui.hwnd(), Arc::clone(&paused)));
+                        let (clip_sync, mut clip_events) = ClipboardSync::new(
+                            Arc::clone(&mgr),
+                            sink,
+                            device_id,
+                            ClipConfig::default(),
+                        );
+                        let pump_sync = clip_sync.clone();
+                        tokio::spawn(async move {
+                            while let Some(ev) = events.recv().await {
+                                // Clipboard frames are consumed; other events need no action yet.
+                                let _ = pump_sync.handle_event(ev).await;
+                            }
+                        });
+                        sync = Some(clip_sync);
+                        tokio::spawn(async move {
+                            while let Some(ev) = clip_events.recv().await {
+                                tracing::debug!(event = ?ev, "clipboard event");
+                            }
+                        });
                         started = Some((mgr, b, mdns.ok()));
                     }
                     Err(e) => {
@@ -144,7 +167,20 @@ pub async fn run(input: HostInput, ui: UiHandle, mut commands: mpsc::UnboundedRe
                     open_folder(&dir);
                 }
             }
+            ToEngine::LocalClip(clip) => {
+                let allowed = match &clip {
+                    Clip::Text(_) => config.sync_text,
+                    Clip::Image { .. } => config.sync_images,
+                };
+                if let (Some(sync), true, false) = (&sync, allowed, paused.load(Ordering::Relaxed))
+                {
+                    if let Err(e) = sync.submit_local(clip).await {
+                        tracing::warn!(error = %e, "clipboard item not sent");
+                    }
+                }
+            }
             ToEngine::SetPaused(p) => {
+                paused.store(p, Ordering::Relaxed);
                 publish(&ui, &shared, |s| s.paused = p);
                 let mut cfg = config.clone();
                 cfg.paused = p;

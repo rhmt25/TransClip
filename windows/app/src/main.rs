@@ -3,6 +3,7 @@
 
 mod bridge;
 mod cli;
+mod clipboard;
 mod config;
 mod engine_host;
 mod logging;

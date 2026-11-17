@@ -14,8 +14,8 @@ use windows::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, GetMessageW,
     GetWindowLongPtrW, PostQuitMessage, RegisterClassExW, RegisterWindowMessageW,
     SetWindowLongPtrW, TranslateMessage, CREATESTRUCTW, GWLP_USERDATA, MSG, WINDOW_EX_STYLE,
-    WINDOW_STYLE, WM_COMMAND, WM_CONTEXTMENU, WM_CREATE, WM_DESTROY, WM_LBUTTONDBLCLK, WM_NCCREATE,
-    WM_RBUTTONUP, WNDCLASSEXW,
+    WINDOW_STYLE, WM_CLIPBOARDUPDATE, WM_COMMAND, WM_CONTEXTMENU, WM_CREATE, WM_DESTROY,
+    WM_LBUTTONDBLCLK, WM_NCCREATE, WM_RBUTTONUP, WM_TIMER, WNDCLASSEXW,
 };
 
 use crate::bridge::{Status, ToEngine, ToUi, UiHandle, WM_BRIDGE};
@@ -29,6 +29,7 @@ struct State {
     inbox: mpsc::Receiver<ToUi>,
     status: Status,
     taskbar_created: u32,
+    clip: crate::clipboard::Watcher,
 }
 
 impl State {
@@ -119,7 +120,18 @@ unsafe extern "system" fn wnd_proc(
             state.command(hwnd, wparam.0 & 0xffff);
             LRESULT(0)
         }
+        WM_CLIPBOARDUPDATE => {
+            state.clip.on_update(hwnd);
+            LRESULT(0)
+        }
+        WM_TIMER if wparam.0 == crate::clipboard::DEBOUNCE_TIMER => {
+            if let Some(clip) = state.clip.on_timer(hwnd) {
+                let _ = state.engine.send(ToEngine::LocalClip(clip));
+            }
+            LRESULT(0)
+        }
         WM_DESTROY => {
+            state.clip.stop(hwnd);
             state.tray.remove();
             PostQuitMessage(0);
             LRESULT(0)
@@ -148,6 +160,7 @@ pub fn run(
         status: initial,
         // SAFETY: the string literal is a valid wide string.
         taskbar_created: unsafe { RegisterWindowMessageW(w!("TaskbarCreated")) },
+        clip: crate::clipboard::Watcher::default(),
     });
     let state_ptr = Box::into_raw(state);
 
@@ -191,6 +204,9 @@ pub fn run(
     // SAFETY: `state_ptr` is valid and only used on this thread.
     unsafe {
         (*state_ptr).tray = Tray::new(hwnd);
+        if !(*state_ptr).clip.start(hwnd) {
+            tracing::warn!("could not register the clipboard listener");
+        }
         if !(*state_ptr).tray.add(&(*state_ptr).status) {
             tracing::warn!("could not add the tray icon (Explorer not ready?)");
         }
