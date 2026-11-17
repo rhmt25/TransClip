@@ -47,7 +47,10 @@ import io.transclip.engine.PeerState
 import io.transclip.proto.GroupKey
 import io.transclip.proto.PairingInfo
 import io.transclip.proto.ProtoException
+import io.transclip.app.share.copyToCache
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.net.NetworkInterface
 
 class MainActivity : ComponentActivity() {
@@ -81,6 +84,15 @@ class MainActivity : ComponentActivity() {
         var message by remember { mutableStateOf("") }
         var invite by remember { mutableStateOf("") }
 
+        val pickFiles = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+            if (uris.isNotEmpty()) {
+                scope.launch {
+                    val files = withContext(Dispatchers.IO) { uris.mapNotNull { copyToCache(this@MainActivity, it) } }
+                    val n = app.engine.sendFiles(files)
+                    message = getString(if (n > 0) R.string.share_sent else R.string.share_no_device, n)
+                }
+            }
+        }
         val askNotifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
             SyncService.start(this)
         }
@@ -118,6 +130,9 @@ class MainActivity : ComponentActivity() {
                         Button(onClick = {
                             startActivity(Intent(this@MainActivity, ClipCaptureActivity::class.java))
                         }) { Text(getString(R.string.action_send_clip)) }
+                        OutlinedButton(onClick = { pickFiles.launch(arrayOf("*/*")) }) {
+                            Text(getString(R.string.action_send_files))
+                        }
                         OutlinedButton(onClick = {
                             scope.launch {
                                 val next = !AppState.paused.value

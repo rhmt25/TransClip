@@ -11,6 +11,8 @@ pub enum Mode {
     Pair(String),
     /// Ask the running daemon to quit.
     Quit,
+    /// Send these files or folders to all online devices.
+    Send(Vec<String>),
 }
 
 /// Parsed arguments.
@@ -36,6 +38,13 @@ pub fn parse<I: IntoIterator<Item = String>>(args: I) -> Result<Cli, String> {
         match arg.as_str() {
             "--settings" => cli.mode = Mode::Settings,
             "--quit" => cli.mode = Mode::Quit,
+            "--send" => {
+                let paths: Vec<String> = it.by_ref().collect();
+                if paths.is_empty() {
+                    return Err("--send needs at least one file or folder".into());
+                }
+                cli.mode = Mode::Send(paths);
+            }
             "--pair" => {
                 let uri = it.next().ok_or("--pair needs a transclip:// URI")?;
                 cli.mode = Mode::Pair(uri);
@@ -75,6 +84,10 @@ mod tests {
         assert_eq!(p(&["--settings"]).unwrap().mode, Mode::Settings);
         assert_eq!(p(&["--quit"]).unwrap().mode, Mode::Quit);
         assert_eq!(
+            p(&["--send", "a.txt", "b c.txt"]).unwrap().mode,
+            Mode::Send(vec!["a.txt".into(), "b c.txt".into()])
+        );
+        assert_eq!(
             p(&["--pair", "transclip://pair?v=1"]).unwrap().mode,
             Mode::Pair("transclip://pair?v=1".into())
         );
@@ -88,6 +101,7 @@ mod tests {
     #[test]
     fn bad_input_is_reported() {
         assert!(p(&["--pair"]).is_err());
+        assert!(p(&["--send"]).is_err());
         assert!(p(&["--log-level", "loud"]).is_err());
         assert!(p(&["--bogus"]).is_err());
         assert!(p(&["--hold-secs", "x"]).is_err());

@@ -25,4 +25,10 @@
     <string name="pairing_joined">Berhasil bergabung</string>
     <string name="pairing_created">Kode disalin; berlaku 2 menit</string>
     <string name="history_title">Aktivitas</string>
+    <string name="action_send_files">Kirim file</string>
+    <string name="channel_transfers">Transfer file</string>
+    <string name="transfer_received">%1$d file diterima, %2$d gagal</string>
+    <string name="transfer_sent">%1$d file terkirim, %2$d gagal</string>
+    <string name="share_sent">Dikirim ke %d perangkat</string>
+    <string name="share_no_device">Tidak ada perangkat yang online</string>
 </resources>

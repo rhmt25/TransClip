@@ -308,7 +308,7 @@ Baca `CLAUDE.md` dulu. Spesifikasi: `docs/PLAN.md` (arsitektur) dan `docs/PROTOC
 * **Lakukan:** engine lengkap headless yang bisa diperintah via stdin (kirim teks, kirim file, tampilkan item diterima) untuk test Kotlin.
 * **Selesai jika:** dipakai oleh P5-03; perintah terdokumentasi di `CLAUDE.md`.
 
-### [ ] P5-03 · Engine Kotlin: TransferManager
+### [~] P5-03 · Engine Kotlin: TransferManager
 * **Dep:** P5-02, P3-02
 * **Lakukan:** padanan P5-01; `IncomingStore` Android menulis ke default `MediaStore.Downloads` (`Download/TransClip/…`). Folder kustom ditambahkan di P5-09, jadi rancang `IncomingStore` sebagai interface dengan dua implementasi (`MediaStoreDownloads`, `SafTree`).
 * **Selesai jika:** test JVM interop live (skip bila env tidak ada): kirim/terima folder dengan `interop_peer`, hash cocok, resume bekerja.
@@ -324,12 +324,12 @@ Baca `CLAUDE.md` dulu. Spesifikasi: `docs/PLAN.md` (arsitektur) dan `docs/PROTOC
 * **Lakukan:** `transclip.exe --send <paths…>` → kirim ke daemon via pipe → popup pemilih perangkat (egui kecil atau menu radial di tengah layar); buat/hapus shortcut `SendTo` dari setting; menu tray *Kirim file…*.
 * **Selesai jika:** **[MANUAL]** klik kanan file → Kirim ke → TransClip → pilih perangkat → terkirim.
 
-### [ ] P5-06 · Windows: penerimaan & notifikasi
+### [~] P5-06 · Windows: penerimaan & notifikasi
 * **Dep:** P5-01, P2-06
 * **Lakukan:** `IncomingStore` Windows (default `FOLDERID_Downloads\TransClip`, membaca `download_dir` dari config, long path `\\?\`), notifikasi saat batch selesai (klik → buka folder di Explorer dengan file terpilih), progres di tooltip tray.
 * **Selesai jika:** **[MANUAL]** kirim folder dari HP → tiba di `Downloads\TransClip\<folder>` dengan struktur utuh.
 
-### [ ] P5-07 · Android: Share Sheet, pemilih perangkat, Direct Share
+### [~] P5-07 · Android: Share Sheet, pemilih perangkat, Direct Share
 * **Dep:** P5-03
 * **File:** `share/ShareReceiverActivity.kt`, `ui/DevicePickerSheet.kt`
 * **Lakukan:** PLAN §6.6.

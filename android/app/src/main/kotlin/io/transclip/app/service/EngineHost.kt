@@ -18,6 +18,13 @@ import io.transclip.engine.ManagerConfig
 import io.transclip.engine.PeerManager
 import io.transclip.engine.PeerSeen
 import io.transclip.engine.Submitted
+import io.transclip.engine.Batch
+import io.transclip.engine.TransferEvent
+import io.transclip.engine.TransferManager
+import io.transclip.engine.batchesFromPaths
+import io.transclip.proto.DeviceId
+import io.transclip.app.storage.AndroidStore
+import java.io.File
 import io.transclip.proto.GroupKey
 import io.transclip.proto.Platform
 import kotlinx.coroutines.CoroutineScope
@@ -44,6 +51,7 @@ class EngineHost(private val context: Context) {
     private var scope: CoroutineScope? = null
     private var mgr: PeerManager? = null
     private var sync: ClipboardSync? = null
+    private var transfers: TransferManager? = null
     private var beacon: BeaconService? = null
     private var nsd: NsdDiscovery? = null
     private var lock: WifiManager.MulticastLock? = null
@@ -58,6 +66,7 @@ class EngineHost(private val context: Context) {
         if (gk == null) return false
         val cfg = settings.get()
         AppState.setPaused(cfg.paused)
+        pruneOutgoingCache()
         val me = secrets.deviceId()
         val s = CoroutineScope(SupervisorJob() + Dispatchers.Default)
         scope = s
@@ -99,10 +108,30 @@ class EngineHost(private val context: Context) {
         val writer = ClipboardWriter(context) { AppState.paused.value }
         val clipSync = ClipboardSync(manager, writer, me, s)
         sync = clipSync
+        val tm = TransferManager(
+            manager,
+            AndroidStore(context),
+            s,
+            io.transclip.engine.TransferConfig(receiveFiles = cfg.receiveFiles),
+        )
+        transfers = tm
 
         manager.status.onEach { AppState.setPeers(it) }.launchIn(s)
         s.launch {
-            for (ev in manager.events) clipSync.handleEvent(ev)
+            for (ev in manager.events) {
+                // Clipboard frames are consumed by clipSync, file frames by the transfer manager.
+                clipSync.handleEvent(ev)?.let { tm.handleEvent(it) }
+            }
+        }
+        s.launch {
+            for (ev in tm.events) {
+                if (ev is TransferEvent.BatchFinished) {
+                    TransferNotifier.batchFinished(context, ev.ok, ev.failed, ev.incoming)
+                    AppState.addHistory(
+                        (if (ev.incoming) "File diterima: " else "File terkirim: ") + "${ev.ok} berhasil, ${ev.failed} gagal",
+                    )
+                }
+            }
         }
         s.launch {
             for (ev in clipSync.events) {
@@ -120,6 +149,12 @@ class EngineHost(private val context: Context) {
         return true
     }
 
+    /** Files copied for sharing are only needed while sending; drop the ones older than a day. */
+    private fun pruneOutgoingCache() {
+        val cutoff = System.currentTimeMillis() - 24 * 60 * 60 * 1000
+        File(context.cacheDir, "outgoing").listFiles()?.filter { it.lastModified() < cutoff }?.forEach { it.deleteRecursively() }
+    }
+
     suspend fun stop() {
         beacon?.stop()
         nsd?.stop()
@@ -130,6 +165,7 @@ class EngineHost(private val context: Context) {
         nsd = null
         mgr = null
         sync = null
+        transfers = null
         lock = null
         scope = null
         AppState.setRunning(false)
@@ -146,6 +182,19 @@ class EngineHost(private val context: Context) {
         if (AppState.paused.value) return null
         val syncer = sync ?: return null
         return syncer.submitLocal(clip)
+    }
+
+    /** Send files and folders to the given peers (all online peers when [to] is empty). */
+    suspend fun sendFiles(files: List<File>, to: List<DeviceId> = emptyList()): Int {
+        val tm = transfers ?: return 0
+        val targets = to.ifEmpty { mgr?.onlinePeers().orEmpty() }
+        if (targets.isEmpty()) return 0
+        val batches: List<Batch> = batchesFromPaths(files)
+        val s = scope ?: return 0
+        for (peer in targets) {
+            for (b in batches) s.launch { runCatching { tm.sendBatch(peer, b) } }
+        }
+        return targets.size
     }
 
     fun onlineCount(): Int = mgr?.onlinePeers()?.size ?: 0

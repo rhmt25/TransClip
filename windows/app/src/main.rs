@@ -85,6 +85,20 @@ fn run() -> Result<i32> {
                 serde_json::json!({ "uri": uri }),
             ));
         }
+        cli::Mode::Send(paths) => {
+            // Relative paths are resolved here: the daemon runs in another folder.
+            let abs: Vec<String> = paths
+                .iter()
+                .map(|p| {
+                    std::path::absolute(p)
+                        .map_or_else(|_| p.clone(), |a| a.to_string_lossy().into_owned())
+                })
+                .collect();
+            return Ok(ask_running_daemon(
+                "send_files",
+                serde_json::json!({ "paths": abs, "to": "all" }),
+            ));
+        }
         cli::Mode::Settings => {
             // The settings window arrives with task P4-01; until then ask the daemon.
             return Ok(ask_running_daemon("show_settings", serde_json::Value::Null));

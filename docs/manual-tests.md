@@ -34,3 +34,5 @@ Dijalankan oleh agen, bukan pengganti uji pengguna; tanda `[x]` di TODO tetap me
 * M03 (sebagian): teks di HP → tombol *Kirim clipboard* → clipboard PC berisi teks yang sama (`Delivered`).
 * M02 (sebagian): gambar PC (clipboard Windows) → HP: file `Pictures/TransClip/TransClip-xxxx.png`, 320×200, piksel identik dengan sumber.
 * Belum diuji: tile Quick Settings, layar mati lama, reboot, gambar HP → PC, KeePass/Bitwarden, tray (T01), autostart (T03).
+* Transfer file (adb, 2026-11-18): folder `Kiriman Uji` (sub-folder bertingkat, folder kosong, file 3 MB) + file lepas PC → HP: struktur tiba di `Download/TransClip/`, SHA-256 `data.bin` sama dengan sumber. File 2,5 MB HP → PC (lewat Share): SHA-256 sama. Folder kosong tidak dibuat di HP (MediaStore tidak punya folder kosong; dicatat sebagai batasan).
+* Belum diuji: M08 (10 foto), M09 (2 GB + cabut Wi-Fi), radial menu, pemilih perangkat, folder tujuan kustom.

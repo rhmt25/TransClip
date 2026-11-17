@@ -9,6 +9,7 @@ use engine::discovery::beacon::{BeaconConfig, BeaconService};
 use engine::discovery::mdns::{MdnsConfig, MdnsService};
 use engine::link::LocalInfo;
 use engine::peers::{ManagerConfig, PeerManager, PeerState, PeerStatus};
+use engine::transfer::{scan, FsStore, TransferConfig, TransferEvent, TransferManager};
 use proto::beacon::Platform;
 use proto::group::GroupKey;
 use proto::ids::DeviceId;
@@ -57,6 +58,8 @@ struct Hub {
     status: Mutex<Status>,
     ipc: OnceLock<IpcServer>,
     peers: Mutex<Option<watch::Receiver<Vec<PeerStatus>>>>,
+    transfers: Mutex<Option<TransferManager>>,
+    online: Mutex<Vec<DeviceId>>,
     commands: mpsc::UnboundedSender<ToEngine>,
     config: Config,
     paths: Paths,
@@ -203,6 +206,45 @@ fn handler(hub: Arc<Hub>) -> Handler {
                     let _ = hub.commands.send(ToEngine::Reload);
                     Ok(json!({ "joined": info.group_name }))
                 }
+                "send_files" => {
+                    let paths: Vec<std::path::PathBuf> = params
+                        .get("paths")
+                        .and_then(Value::as_array)
+                        .ok_or("params.paths must be an array")?
+                        .iter()
+                        .filter_map(|v| v.as_str().map(Into::into))
+                        .collect();
+                    let to = params.get("to").and_then(Value::as_str).unwrap_or("all");
+                    let tm = hub
+                        .transfers
+                        .lock()
+                        .unwrap_or_else(PoisonError::into_inner)
+                        .clone()
+                        .ok_or("not in a group yet")?;
+                    let targets: Vec<DeviceId> = if to == "all" {
+                        hub.online
+                            .lock()
+                            .unwrap_or_else(PoisonError::into_inner)
+                            .clone()
+                    } else {
+                        vec![DeviceId::from_hex(to).map_err(|_| "bad device id")?]
+                    };
+                    if targets.is_empty() {
+                        return Err("no device is online".into());
+                    }
+                    let batches = scan::batch_from_paths(&paths).map_err(|e| e.to_string())?;
+                    for peer in targets {
+                        for batch in batches.clone() {
+                            let tm = tm.clone();
+                            tokio::spawn(async move {
+                                if let Err(e) = tm.send_batch(peer, batch).await {
+                                    tracing::warn!(error = %e, "could not start the transfer");
+                                }
+                            });
+                        }
+                    }
+                    Ok(Value::Null)
+                }
                 "quit" => {
                     hub.ui.send(ToUi::Quit);
                     Ok(Value::Null)
@@ -307,6 +349,12 @@ async fn start_engine(
                 .iter()
                 .filter(|p| p.state == PeerState::Online)
                 .count();
+            *hub2.online.lock().unwrap_or_else(PoisonError::into_inner) = watch
+                .borrow()
+                .iter()
+                .filter(|p| p.state == PeerState::Online)
+                .map(|p| p.id)
+                .collect();
             hub2.update(|s| s.online = online);
             if let Some(ipc) = hub2.ipc.get() {
                 ipc.publish(Event {
@@ -319,11 +367,53 @@ async fn start_engine(
     let sink = Arc::new(WindowsSink::new(ui.hwnd(), Arc::clone(paused)));
     let (sync, mut clip_events) =
         ClipboardSync::new(Arc::clone(&mgr), sink, device_id, ClipConfig::default());
+    let receive_dir = if config.download_dir.is_empty() {
+        crate::paths::default_receive_dir()
+            .unwrap_or_else(|_| std::env::temp_dir().join("TransClip"))
+    } else {
+        std::path::PathBuf::from(&config.download_dir)
+    };
+    let (transfers, mut transfer_events) = TransferManager::new(
+        Arc::clone(&mgr),
+        Arc::new(FsStore::new(receive_dir)),
+        TransferConfig {
+            receive_files: config.receive_files,
+            max_file_bytes: config.max_incoming_file_bytes,
+            ..TransferConfig::default()
+        },
+    );
+    *hub.transfers.lock().unwrap_or_else(PoisonError::into_inner) = Some(transfers.clone());
     let pump_sync = sync.clone();
     tokio::spawn(async move {
         while let Some(ev) = events.recv().await {
-            // Clipboard frames are consumed; other events need no action yet.
-            let _ = pump_sync.handle_event(ev).await;
+            // Clipboard and file frames are consumed; the rest needs no action yet.
+            if let Some(rest) = pump_sync.handle_event(ev).await {
+                let _ = transfers.handle_event(rest).await;
+            }
+        }
+    });
+    let ui_notify = ui.clone();
+    tokio::spawn(async move {
+        while let Some(ev) = transfer_events.recv().await {
+            match ev {
+                TransferEvent::BatchFinished {
+                    ok,
+                    failed,
+                    incoming,
+                    ..
+                } => {
+                    let text = if incoming {
+                        format!("{ok} file diterima, {failed} gagal")
+                    } else {
+                        format!("{ok} file terkirim, {failed} gagal")
+                    };
+                    ui_notify.send(ToUi::Notify {
+                        title: strings::APP_NAME.into(),
+                        text,
+                    });
+                }
+                other => tracing::debug!(event = ?other, "transfer event"),
+            }
         }
     });
     tokio::spawn(async move {
@@ -355,6 +445,8 @@ pub async fn run(input: HostInput, ui: UiHandle, mut commands: mpsc::UnboundedRe
         }),
         ipc: OnceLock::new(),
         peers: Mutex::new(None),
+        transfers: Mutex::new(None),
+        online: Mutex::new(Vec::new()),
         commands: command_tx,
         config: config.clone(),
         paths: paths.clone(),
@@ -393,6 +485,7 @@ pub async fn run(input: HostInput, ui: UiHandle, mut commands: mpsc::UnboundedRe
                     r.stop().await;
                 }
                 *hub.peers.lock().unwrap_or_else(PoisonError::into_inner) = None;
+                *hub.transfers.lock().unwrap_or_else(PoisonError::into_inner) = None;
                 if let Some(gk) = reload(&hub) {
                     running = start_engine(&hub, &ui, gk, &paused).await;
                     ui.send(ToUi::Notify {
