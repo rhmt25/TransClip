@@ -1,0 +1,23 @@
+﻿# Uji Manual
+
+Isi kolom Hasil dan Tanggal setelah dijalankan di perangkat asli.
+
+| ID | Skenario | Hasil | Tanggal |
+| --- | --- | --- | --- |
+| M01 | Teks PC → semua HP (< 1 s), muncul di Gboard |  |  |
+| M02 | Screenshot Win+Shift+S → HP, kualitas identik (bandingkan hash PNG) |  |  |
+| M03 | Teks HP (tile) → PC, muncul di Win+V |  |  |
+| M04 | Foto galeri HP (share) → PC sebagai gambar clipboard |  |  |
+| M05 | Salin dari password manager → tidak terkirim |  |  |
+| M06 | Tidak ada loop/duplikat dengan 1 PC + 2 HP aktif |  |  |
+| M07 | Radial: 1 file, 20 file, folder bertingkat → 1 peer dan "Semua" |  |  |
+| M08 | Share 10 foto dari HP → PC, struktur & hash cocok |  |  |
+| M09 | File 2 GB, cabut Wi-Fi di 50%, sambung lagi → resume, hash cocok |  |  |
+| M10 | Wi-Fi mati → BT mengambil alih teks; Wi-Fi kembali → LAN |  |  |
+| M11 | HP layar mati 1 jam → masih menerima teks |  |  |
+| M12 | Reboot PC & HP → otomatis tersambung lagi |  |  |
+| M13 | Pairing via QR dan via kode teks; QR kedaluwarsa ditolak |  |  |
+| M14 | Rotasi kunci: perangkat dicabut tidak bisa terhubung |  |  |
+| M15 | Path jahat (dikirim via `interop_peer`) ditolak |  |  |
+| M16 | Drag dari app Admin → didokumentasikan tidak didukung, tidak crash |  |  |
+| M17 | Folder tujuan: default di Download (kedua platform) → ubah ke folder lain → file tiba di folder baru → folder dicabut/dihapus → fallback ke Download + notifikasi → Reset ke default |  |  |

@@ -1,0 +1,15 @@
+﻿Clipdeck/
+graphify-out/
+windows/target/
+android/.gradle/
+android/build/
+android/**/build/
+android/local.properties
+android/keystore.properties
+*.jks
+*.keystore
+.idea/
+*.iml
+.DS_Store
+Thumbs.db
+dist/
