@@ -1,3 +1,4 @@
-//! TransClip engine: peer links, discovery, clipboard sync and file transfer.
+//! TransClip engine: connection links, discovery and sync logic.
 
+pub mod discovery;
 pub mod link;

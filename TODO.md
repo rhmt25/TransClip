@@ -31,7 +31,7 @@ Baca `CLAUDE.md` dulu. Spesifikasi: `docs/PLAN.md` (arsitektur) dan `docs/PROTOC
   * Catat versi di `docs/DECISIONS.md`.
 * **Selesai jika:** `cargo new --bin hello` di folder scratch berhasil `cargo run`.
 
-### [~] P0-03 · Toolchain Android [MANUAL]
+### [x] P0-03 · Toolchain Android [MANUAL]
 * **Lakukan:**
   * Minta pengguna memasang Android Studio (atau command-line tools) + JDK 17 (bawaan Android Studio), SDK Platform API terbaru, Build-Tools, Platform-Tools.
   * Set `ANDROID_HOME` dan tambahkan `platform-tools` ke PATH.
@@ -45,7 +45,7 @@ Baca `CLAUDE.md` dulu. Spesifikasi: `docs/PLAN.md` (arsitektur) dan `docs/PROTOC
 * **Lakukan:** buat struktur `windows/` sesuai PLAN §3: workspace dengan member `crates/proto`, `crates/engine`, `crates/tvgen`, `app`. `.cargo/config.toml` (crt-static), profil release (PLAN §5.7), `rust-toolchain.toml` (channel stable), `rustfmt.toml`, lint `clippy` di `[workspace.lints]` (`unwrap_used = "warn"` di non-test).
 * **Selesai jika:** `cargo build --workspace` dan `cargo clippy --workspace -- -D warnings` lulus; `app` menghasilkan `transclip.exe` yang langsung keluar.
 
-### [~] P0-05 · Kerangka proyek Android
+### [x] P0-05 · Kerangka proyek Android
 * **Dep:** P0-03
 * **Lakukan:** buat `android/` dengan Gradle Kotlin DSL, version catalog `gradle/libs.versions.toml`, modul `:proto` (plugin `kotlin("jvm")` + serialization) dan `:app` (Compose, minSdk 29). Gradle wrapper ikut di-commit. Aktivitas kosong "TransClip".
 * **Selesai jika:** `./gradlew :proto:test :app:assembleDebug` lulus; APK terinstal dan terbuka di HP (**[MANUAL]** konfirmasi pengguna).
@@ -168,7 +168,7 @@ Baca `CLAUDE.md` dulu. Spesifikasi: `docs/PLAN.md` (arsitektur) dan `docs/PROTOC
 * **Lakukan:** `Link` membungkus `SecureStream`: task baca → `mpsc` event; task tulis dengan dua antrian (kontrol prioritas tinggi, data rendah); ping 30 s, dead 90 s; `hello` exchange; penutupan bersih (`bye`). Generik atas transport (`AsyncRead+AsyncWrite+Send`).
 * **Selesai jika:** test duplex: hello, ping/pong dengan waktu tokio dijeda (`tokio::time::pause`), dead timeout, frame kontrol menyela antrian data besar.
 
-### [ ] P2-02 · Engine: Discovery
+### [x] P2-02 · Engine: Discovery
 * **Dep:** P2-01
 * **File:** `engine/src/discovery/{mdns.rs,beacon.rs,cache.rs}`
 * **Lakukan:** register + browse `_transclip._tcp` (`mdns-sd`), filter `gid`; UDP beacon kirim tiap 10 s dan saat diminta, terima & filter (`socket2`, `SO_BROADCAST`, `SO_REUSEADDR`); cache alamat di `peers.json`. Output `Stream<PeerSeen>`.
