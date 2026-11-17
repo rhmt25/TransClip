@@ -37,7 +37,7 @@ Baca `CLAUDE.md` dulu. Spesifikasi: `docs/PLAN.md` (arsitektur) dan `docs/PROTOC
   * Set `ANDROID_HOME` dan tambahkan `platform-tools` ke PATH.
   * Minta pengguna mengaktifkan USB debugging di ≥1 HP dan memverifikasi `adb devices`.
 * **Selesai jika:** `adb devices` menampilkan perangkat; versi dicatat di `docs/DECISIONS.md`.
-* **Status (2026-11-18):** cmdline-tools + JDK 23 ada; `sdkmanager --licenses` BELUM diterima. Pengguna perlu menjalankan sendiri: `! & "$env:LOCALAPPDATA\Android\Sdk\cmdline-tools\latest\bin\sdkmanager.bat" --sdk_root="$env:LOCALAPPDATA\Android\Sdk" --licenses` lalu `platform-tools`, `platforms;android-35`, `build-tools;35.0.0`. Rust 1.100.0 + VS Build Tools 2022 (MSVC) sudah terpasang.
+* **Status (2026-11-18):** SDK terpasang (platform-tools, android-35, build-tools 35.0.0, lisensi diterima). Tinggal **[MANUAL]**: sambungkan HP (USB debugging) sampai `adb devices` menampilkan perangkat. Catatan lama: cmdline-tools + JDK 23 ada; `sdkmanager --licenses` BELUM diterima. Pengguna perlu menjalankan sendiri di jendela PowerShell biasa (bukan lewat awalan `!`, yang memakai Bash): `& "$env:LOCALAPPDATA\Android\Sdk\cmdline-tools\latest\bin\sdkmanager.bat" --sdk_root="$env:LOCALAPPDATA\Android\Sdk" --licenses`, lalu agent memasang `platform-tools`, `platforms;android-35`, `build-tools;35.0.0`. Rust 1.100.0 + VS Build Tools 2022 (MSVC) sudah terpasang.
 
 
 ### [x] P0-04 · Kerangka workspace Rust
@@ -49,7 +49,7 @@ Baca `CLAUDE.md` dulu. Spesifikasi: `docs/PLAN.md` (arsitektur) dan `docs/PROTOC
 * **Dep:** P0-03
 * **Lakukan:** buat `android/` dengan Gradle Kotlin DSL, version catalog `gradle/libs.versions.toml`, modul `:proto` (plugin `kotlin("jvm")` + serialization) dan `:app` (Compose, minSdk 29). Gradle wrapper ikut di-commit. Aktivitas kosong "TransClip".
 * **Selesai jika:** `./gradlew :proto:test :app:assembleDebug` lulus; APK terinstal dan terbuka di HP (**[MANUAL]** konfirmasi pengguna).
-* **Status (2026-11-18):** Gradle 8.14.3 + wrapper, version catalog dan modul `:proto` selesai (29 test hijau). Modul `:app` (Compose) belum dibuat karena menunggu Android SDK (lihat P0-03).
+* **Status (2026-11-18):** Gradle 8.14.3 + wrapper, `:proto` (29 test hijau) dan `:app` (Compose, minSdk 29, AGP 8.11.1) selesai. `assembleDebug` dan `assembleRelease` (R8, 3,8 MB) berhasil. Tinggal **[MANUAL]**: pasang APK debug ke HP dan konfirmasi terbuka.
 
 
 ### [ ] P0-06 · Spike S1 — Gambar ke clipboard Android & Gboard [MANUAL]

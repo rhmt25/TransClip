@@ -17,4 +17,5 @@ dependencyResolutionManagement {
 }
 
 include(":proto")
-// ":app" is added in P0-05 once the Android SDK is installed.
+include(":app")
+
