@@ -54,3 +54,9 @@ Format: `D-<nomor> · <tanggal> · <judul>` → Keputusan, Alasan, Alternatif ya
 * **Konteks:** PLAN §6.1 menaruh paket `engine` di dalam `:app`. Logika `Link`, `PeerManager`, `ClipboardSync` tidak butuh Android SDK, dan di `:app` uji JVM-nya lebih lambat serta ikut terikat plugin Android.
 * **Keputusan:** buat modul JVM murni `:engine` (paket `io.transclip.engine`) di antara `:proto` dan `:app`, mencerminkan `proto`/`engine` di sisi Rust. Kode khusus Android (NSD, Keystore, service, UI) tetap di `:app`.
 * **Dampak:** uji engine berjalan dengan `./gradlew :engine:test` tanpa emulator; `:app` bergantung pada `:engine`.
+
+### D-013 · 2026-11-18 · Transfer file lewat koneksi kontrol, tanpa koneksi TCP kedua
+* **Konteks:** PROTOCOL §9.3 semula membuka koneksi TCP baru (hello `role=file`) untuk setiap aliran file di LAN.
+* **Keputusan:** `file_stream`/`file_chunk`/`file_end` memakai koneksi kontrol yang sama lewat antrean data `Link`, yang sudah memberi prioritas pada frame kontrol di antara chunk.
+* **Alasan:** satu koneksi, satu handshake, satu aturan dial/duplikat; clipboard tidak terblokir karena prioritas dilakukan per frame (≤ 64 KiB). Menghapus kebutuhan routing koneksi berperan `file` dan batas koneksi paralel.
+* **Dampak:** PROTOCOL §9.3 diperbarui; kedua engine memakai jalur yang sama untuk LAN dan BT. Throughput satu koneksi TCP sudah memadai untuk LAN rumah.

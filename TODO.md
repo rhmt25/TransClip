@@ -296,7 +296,7 @@ Baca `CLAUDE.md` dulu. Spesifikasi: `docs/PLAN.md` (arsitektur) dan `docs/PROTOC
 
 ## P5 — Transfer File & Folder
 
-### [ ] P5-01 · Engine Rust: TransferManager
+### [x] P5-01 · Engine Rust: TransferManager
 * **Dep:** P2-04
 * **File:** `engine/src/transfer/{mod.rs,outgoing.rs,incoming.rs,store.rs}`
 * **Lakukan:** PROTOCOL §9.3 lengkap: batch, `dir`, koneksi file terpisah (LAN), streaming SHA-256, `.transclip-part`, resume, rename konflik ` (n)`, validasi path, kuota, maksimal 3 transfer paralel per peer, progres via `watch`, pembatalan dua arah. Trait `IncomingStore` agar platform menentukan lokasi tulis.

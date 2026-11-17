@@ -173,7 +173,7 @@ Penerima WAJIB **mengabaikan** frame dengan `t` tidak dikenal (setelah membaca d
 
 | `t` | Arah | Field | Payload | Keterangan |
 |---|---|---|---|---|
-| `hello` | ↔ | `v`, `id` (device_id), `name`, `pl` (`windows`/`android`), `app` (versi semver), `caps` (array string), `role` (`control`/`file`) | – | Pesan pertama setelah handshake. Peer belum dianggap "connected" sebelum `hello` diterima |
+| `hello` | ↔ | `v`, `id` (device_id), `name`, `pl` (`windows`/`android`), `app` (versi semver), `caps` (array string), `role` (selalu `full` pada versi 1; `file` tidak dipakai, lihat D-013) | – | Pesan pertama setelah handshake. Peer belum dianggap "connected" sebelum `hello` diterima |
 | `ping` | ↔ | – | – | Dikirim jika tidak ada pengiriman selama **30 detik** |
 | `pong` | ↔ | – | – | Jawaban `ping` |
 | `error` | ↔ | `code`, `msg` (opsional), `ref` (id terkait, opsional) | – | Lihat §11 |
@@ -204,20 +204,21 @@ Aturan:
 
 ### 9.3 Transfer file
 
-Alur LAN:
+Alur (LAN dan Bluetooth sama):
 
 ```
-Pengirim (kanal kontrol)            Penerima
+Pengirim                            Penerima
   file_offer {...}            ───►
                               ◄───   file_accept {xfer_id, offset}
-  [buka koneksi TCP baru, handshake, hello role=file]
-  file_stream {xfer_id}       ───►   (di koneksi file)
+  file_stream {xfer_id}       ───►
   file_chunk ... file_chunk   ───►
   file_end {xfer_id}          ───►
-                              ◄───   file_result {xfer_id, ok, reason}   (di kanal kontrol)
+                              ◄───   file_result {xfer_id, ok, reason}
 ```
 
-Alur Bluetooth: sama, tetapi `file_stream` / `file_chunk` / `file_end` dikirim di kanal kontrol RFCOMM yang sama, diselingi frame kontrol (frame kontrol didahulukan di antara chunk).
+Semua frame dikirim di **koneksi kontrol** yang sama. Pengirim menaruh `file_stream`/`file_chunk`/`file_end` di antrean data berprioritas rendah; frame kontrol (clipboard, ack, offer, result, cancel) menyela di antara chunk (PROTOCOL §7 dan PLAN §4). Tidak ada koneksi TCP kedua (lihat D-013). Batas chunk: 64 KiB (LAN), 8 KiB (BT).
+
+`batch_name` kosong berarti file lepas: entri ditulis langsung di akar folder tujuan. `batch_name` tidak kosong (satu segmen yang lolos validasi path) berarti folder: penerima membuat `<tujuan>/<batch_name>/` (diberi ` (n)` bila sudah ada) dan menulis semua entri batch di dalamnya.
 
 | `t` | Field | Payload | Keterangan |
 |---|---|---|---|
