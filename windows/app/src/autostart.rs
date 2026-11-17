@@ -6,8 +6,8 @@ use anyhow::{anyhow, Result};
 use windows::core::{HSTRING, PCWSTR};
 use windows::Win32::Foundation::{ERROR_FILE_NOT_FOUND, WIN32_ERROR};
 use windows::Win32::System::Registry::{
-    RegCloseKey, RegCreateKeyExW, RegDeleteValueW, RegQueryValueExW, RegSetValueExW, HKEY,
-    HKEY_CURRENT_USER, KEY_QUERY_VALUE, KEY_SET_VALUE, REG_OPTION_NON_VOLATILE, REG_SZ,
+    RegCloseKey, RegCreateKeyExW, RegDeleteValueW, RegSetValueExW, HKEY, HKEY_CURRENT_USER,
+    KEY_QUERY_VALUE, KEY_SET_VALUE, REG_OPTION_NON_VOLATILE, REG_SZ,
 };
 
 /// Registry key that Windows reads at sign-in.
@@ -80,6 +80,7 @@ pub fn set_enabled_in(subkey: &str, enabled: bool, exe: &Path) -> Result<()> {
 /// The stored command, if the value exists (used by tests to verify the registry).
 #[cfg(test)]
 pub fn current_in(subkey: &str) -> Result<Option<String>> {
+    use windows::Win32::System::Registry::RegQueryValueExW;
     let key = open(subkey)?;
     let name = HSTRING::from(VALUE_NAME);
     let mut size = 0u32;
