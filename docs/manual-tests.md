@@ -21,3 +21,4 @@ Isi kolom Hasil dan Tanggal setelah dijalankan di perangkat asli.
 | M15 | Path jahat (dikirim via `interop_peer`) ditolak |  |  |
 | M16 | Drag dari app Admin → didokumentasikan tidak didukung, tidak crash |  |  |
 | M17 | Folder tujuan: default di Download (kedua platform) → ubah ke folder lain → file tiba di folder baru → folder dicabut/dihapus → fallback ke Download + notifikasi → Reset ke default |  |  |
+| T01 | Tray Windows (P2-06): jalankan `transclip.exe` → ikon biru muncul di tray; klik kanan → menu (status, Kirim file, Jeda, Pengaturan, Pairing, Buka folder unduhan, Keluar); Jeda → ikon abu-abu dan tanda centang; Keluar → ikon hilang, proses berhenti; restart Explorer → ikon kembali |  |  |

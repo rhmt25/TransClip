@@ -192,7 +192,7 @@ Baca `CLAUDE.md` dulu. Spesifikasi: `docs/PLAN.md` (arsitektur) dan `docs/PROTOC
 * **Lakukan:** parsing argumen (PLAN §5.1), mutex single instance, path data (PLAN §5.2, gunakan `SHGetKnownFolderPath`), logging `tracing` rolling, `Config` (TOML, default, validasi, simpan atomik via file temp + rename), `SecretStore` DPAPI, panic hook, `build.rs` + manifest + ikon.
 * **Selesai jika:** menjalankan exe 2× → instans kedua keluar; file config & log dibuat; secrets terenkripsi (tidak terbaca sebagai teks); `clippy -D warnings` lulus.
 
-### [ ] P2-06 · Daemon: thread UI, tray & jembatan ke engine
+### [~] P2-06 · Daemon: thread UI, tray & jembatan ke engine
 * **Dep:** P2-05, P2-03
 * **File:** `app/src/{ui_thread.rs,tray.rs,bridge.rs}`
 * **Lakukan:** message loop Win32, jendela message-only, `Shell_NotifyIconW` + menu (PLAN §5.5), `TaskbarCreated`, balloon notification; runtime tokio di thread lain; `bridge.rs` = channel dua arah UI↔engine (`PostMessageW` + `WM_APP`).

@@ -1,12 +1,17 @@
 //! TransClip Windows daemon.
 #![cfg_attr(not(test), windows_subsystem = "windows")]
 
+mod bridge;
 mod cli;
 mod config;
+mod engine_host;
 mod logging;
 mod paths;
 mod secrets;
 mod single_instance;
+mod strings;
+mod tray;
+mod ui_thread;
 
 use std::time::Duration;
 
@@ -80,13 +85,49 @@ fn run() -> Result<i32> {
         paired = secrets.group_key.is_some(),
         "daemon started"
     );
-    // The Win32 message loop replaces this wait in task P2-06.
-    match cli.hold_secs {
-        Some(s) => std::thread::sleep(Duration::from_secs(s)),
-        None => loop {
-            std::thread::park();
-        },
+
+    let status = bridge::Status {
+        paired: secrets.group_key.is_some(),
+        paused: cfg.paused,
+        ..bridge::Status::default()
+    };
+    let (cmd_tx, cmd_rx) = tokio::sync::mpsc::unbounded_channel();
+    let quit_tx = cmd_tx.clone();
+    let input = engine_host::HostInput {
+        config: cfg,
+        paths,
+        device_id: secrets.device_id,
+        group_key: secrets.group_key,
+    };
+    let hold = cli.hold_secs;
+    let mut engine_thread = None;
+    ui_thread::run(cmd_tx, status, |ui| {
+        if let Some(secs) = hold {
+            // Debug aid: close the daemon after a while.
+            let ui = ui.clone();
+            std::thread::spawn(move || {
+                std::thread::sleep(Duration::from_secs(secs));
+                ui.send(bridge::ToUi::Quit);
+            });
+        }
+        engine_thread =
+            Some(std::thread::spawn(
+                move || match tokio::runtime::Builder::new_multi_thread()
+                    .worker_threads(2)
+                    .enable_all()
+                    .build()
+                {
+                    Ok(rt) => rt.block_on(engine_host::run(input, ui, cmd_rx)),
+                    Err(e) => tracing::error!(error = %e, "cannot start the async runtime"),
+                },
+            ));
+    })?;
+    // The window is gone: make sure the engine stops, then wait for it.
+    let _ = quit_tx.send(bridge::ToEngine::Quit);
+    if let Some(t) = engine_thread {
+        let _ = t.join();
     }
+    tracing::info!("daemon stopped");
     Ok(0)
 }
 

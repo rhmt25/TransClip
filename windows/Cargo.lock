@@ -1083,10 +1083,12 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "embed-resource",
+ "engine",
  "proto",
  "serde",
  "serde_json",
  "tempfile",
+ "tokio",
  "toml",
  "tracing",
  "tracing-appender",
