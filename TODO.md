@@ -162,7 +162,7 @@ Baca `CLAUDE.md` dulu. Spesifikasi: `docs/PLAN.md` (arsitektur) dan `docs/PROTOC
 
 ## P2 — Engine Bersama (Rust) & Daemon Windows
 
-### [ ] P2-01 · Engine: Link
+### [x] P2-01 · Engine: Link
 * **Dep:** P1-12
 * **File:** `windows/crates/engine/src/link.rs`
 * **Lakukan:** `Link` membungkus `SecureStream`: task baca → `mpsc` event; task tulis dengan dua antrian (kontrol prioritas tinggi, data rendah); ping 30 s, dead 90 s; `hello` exchange; penutupan bersih (`bye`). Generik atas transport (`AsyncRead+AsyncWrite+Send`).

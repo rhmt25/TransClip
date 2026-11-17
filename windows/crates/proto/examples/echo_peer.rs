@@ -14,8 +14,12 @@ use tokio::net::TcpListener;
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
-    let hex_key = std::env::args().nth(1).expect("usage: echo_peer <64 hex chars>");
-    let gk = GroupKey(decode_hex_exact::<32>(&hex_key).expect("group key must be 64 lowercase hex chars"));
+    let hex_key = std::env::args()
+        .nth(1)
+        .expect("usage: echo_peer <64 hex chars>");
+    let gk = GroupKey(
+        decode_hex_exact::<32>(&hex_key).expect("group key must be 64 lowercase hex chars"),
+    );
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     println!("PORT {}", listener.local_addr().unwrap().port());
     let (stream, _) = listener.accept().await.unwrap();
@@ -27,7 +31,10 @@ async fn main() {
                 if matches!(frame.message, Message::Unknown { .. }) {
                     continue;
                 }
-                conn.writer.write_frame(&frame.message, &frame.payload).await.unwrap();
+                conn.writer
+                    .write_frame(&frame.message, &frame.payload)
+                    .await
+                    .unwrap();
             }
             Err(ProtoError::Closed) => break,
             Err(e) => {

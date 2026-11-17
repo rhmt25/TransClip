@@ -223,6 +223,11 @@ dependencies = [
 [[package]]
 name = "engine"
 version = "0.1.0"
+dependencies = [
+ "proto",
+ "thiserror",
+ "tokio",
+]
 
 [[package]]
 name = "equivalent"

@@ -1,4 +1,4 @@
-﻿[package]
+[package]
 name = "engine"
 version.workspace = true
 edition.workspace = true
@@ -6,3 +6,11 @@ publish.workspace = true
 
 [lints]
 workspace = true
+
+[dependencies]
+proto = { version = "0.1.0", path = "../proto" }
+thiserror = "2.0.21"
+tokio = { version = "1.54.1", features = ["rt", "sync", "time", "macros", "io-util"] }
+
+[dev-dependencies]
+tokio = { version = "1.54.1", features = ["rt", "sync", "time", "macros", "io-util", "test-util"] }
