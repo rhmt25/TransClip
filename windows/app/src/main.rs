@@ -1,11 +1,13 @@
 //! TransClip Windows daemon.
 #![cfg_attr(not(test), windows_subsystem = "windows")]
 
+mod autostart;
 mod bridge;
 mod cli;
 mod clipboard;
 mod config;
 mod engine_host;
+mod ipc;
 mod logging;
 mod paths;
 mod secrets;
@@ -40,6 +42,23 @@ fn install_panic_hook() {
     }));
 }
 
+/// Send one request to the daemon that is already running. Returns the process exit code.
+fn ask_running_daemon(method: &str, params: serde_json::Value) -> i32 {
+    let Ok(rt) = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+    else {
+        return 1;
+    };
+    match rt.block_on(ipc::client::one_shot(&ipc::pipe_name(), method, params)) {
+        Ok(_) => 0,
+        Err(e) => {
+            tracing::warn!(error = %e, method, "the running daemon did not accept the request");
+            1
+        }
+    }
+}
+
 fn run() -> Result<i32> {
     let cli = match cli::parse(std::env::args().skip(1)) {
         Ok(c) => c,
@@ -57,24 +76,36 @@ fn run() -> Result<i32> {
     let _log = logging::init(&paths.log_dir(), &cfg.log_level)?;
     install_panic_hook();
 
-    match cli.mode {
+    match &cli.mode {
         cli::Mode::Daemon => {}
-        other => {
-            // Settings, pairing and quit need the IPC channel (task P2-08).
-            tracing::warn!(mode = ?other, "mode not available yet");
-            return Ok(0);
+        cli::Mode::Quit => return Ok(ask_running_daemon("quit", serde_json::Value::Null)),
+        cli::Mode::Pair(uri) => {
+            return Ok(ask_running_daemon(
+                "join_group",
+                serde_json::json!({ "uri": uri }),
+            ));
+        }
+        cli::Mode::Settings => {
+            // The settings window arrives with task P4-01; until then ask the daemon.
+            return Ok(ask_running_daemon("show_settings", serde_json::Value::Null));
         }
     }
     let _guard = match single_instance::acquire()? {
         single_instance::Instance::First(g) => g,
         single_instance::Instance::Already => {
-            tracing::info!("another instance is already running");
-            return Ok(0);
+            tracing::info!("another instance is already running, asking it to show settings");
+            return Ok(ask_running_daemon("show_settings", serde_json::Value::Null));
         }
     };
     let secrets = secrets::Secrets::load_or_create(&paths.secrets_file())?;
     if !paths.config_file().exists() {
         cfg.save(&paths.config_file())?;
+    }
+    // Under a data-dir override (tests, portable use) the real Run key is left alone.
+    if std::env::var_os(paths::DATA_DIR_ENV).is_none() {
+        if let Err(e) = autostart::apply(cfg.autostart) {
+            tracing::warn!(error = %e, "cannot update the autostart entry");
+        }
     }
     tracing::debug!(
         peers = %paths.peers_file().display(),
@@ -99,6 +130,7 @@ fn run() -> Result<i32> {
         paths,
         device_id: secrets.device_id,
         group_key: secrets.group_key,
+        commands: quit_tx.clone(),
     };
     let hold = cli.hold_secs;
     let mut engine_thread = None;

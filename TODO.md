@@ -204,13 +204,13 @@ Baca `CLAUDE.md` dulu. Spesifikasi: `docs/PLAN.md` (arsitektur) dan `docs/PROTOC
 * **Lakukan:** sesuai PLAN §5.3 (debounce, retry, format, rahasia, penanda echo, DIB↔PNG dengan alpha). Implementasikan `ClipboardSink`.
 * **Selesai jika:** unit test `dib.rs` (DIB 24-bit, 32-bit dengan & tanpa alpha, BI_BITFIELDS → PNG → decode identik piksel); **[MANUAL]** dua PC (atau PC + `echo_peer`/engine test) — salin teks & screenshot (Win+Shift+S) → muncul di `Win + V` sisi lain; menyalin dari KeePass/Bitwarden tidak terkirim.
 
-### [ ] P2-08 · Daemon: IPC named pipe
+### [x] P2-08 · Daemon: IPC named pipe
 * **Dep:** P2-06
 * **File:** `app/src/ipc/{server.rs,protocol.rs,client.rs}`
 * **Lakukan:** pipe dengan DACL hanya user sekarang; method & event PLAN §5.6; klien dipakai oleh proses settings dan instans kedua.
 * **Selesai jika:** test integrasi server↔client dalam proses; instans kedua memicu `show_settings`.
 
-### [ ] P2-09 · Daemon: autostart
+### [~] P2-09 · Daemon: autostart
 * **Dep:** P2-05
 * **Selesai jika:** toggle config menulis/menghapus nilai `Run`; path exe ber-spasi dikutip; **[MANUAL]** login ulang → daemon berjalan.
 

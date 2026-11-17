@@ -41,8 +41,46 @@ fn second_instance_exits_and_files_are_created() {
         first.try_wait().unwrap().is_none(),
         "first instance must keep running"
     );
-    first.kill().unwrap();
-    first.wait().unwrap();
+
+    // The second launch asked the first one to show its settings (IPC), which it logs.
+    let log_dir = dir.path().join("local").join("logs");
+    let wait_for_log = |needle: &str| {
+        let start = Instant::now();
+        while start.elapsed() < Duration::from_secs(10) {
+            let found = std::fs::read_dir(&log_dir).unwrap().any(|e| {
+                std::fs::read_to_string(e.unwrap().path()).is_ok_and(|t| t.contains(needle))
+            });
+            if found {
+                return true;
+            }
+            std::thread::sleep(Duration::from_millis(100));
+        }
+        false
+    };
+    assert!(
+        wait_for_log("ShowSettings"),
+        "daemon did not receive show_settings"
+    );
+
+    // `--quit` stops the running daemon cleanly.
+    let quit = exe()
+        .env("TRANSCLIP_DATA_DIR", dir.path())
+        .arg("--quit")
+        .status()
+        .unwrap();
+    assert!(quit.success());
+    let start = Instant::now();
+    let exit = loop {
+        if let Some(status) = first.try_wait().unwrap() {
+            break status;
+        }
+        assert!(
+            start.elapsed() < Duration::from_secs(10),
+            "daemon did not quit"
+        );
+        std::thread::sleep(Duration::from_millis(50));
+    };
+    assert!(exit.success());
 
     let logs: Vec<_> = std::fs::read_dir(dir.path().join("local").join("logs"))
         .unwrap()
