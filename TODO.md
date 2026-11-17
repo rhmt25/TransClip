@@ -218,7 +218,7 @@ Baca `CLAUDE.md` dulu. Spesifikasi: `docs/PLAN.md` (arsitektur) dan `docs/PROTOC
 
 ## P3 — Aplikasi Android Inti
 
-### [ ] P3-01 · Penyimpanan & identitas
+### [x] P3-01 · Penyimpanan & identitas
 * **Dep:** P1-10
 * **File:** `app/.../storage/{SecretStore.kt,SettingsRepo.kt,PeerRepo.kt}`
 * **Lakukan:** device_id dibuat sekali; GK dibungkus kunci Keystore AES-256-GCM (alias `transclip_gk_wrap`); DataStore untuk setting & peer.
