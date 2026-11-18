@@ -25,6 +25,10 @@
     <string name="pairing_joined">Berhasil bergabung</string>
     <string name="pairing_created">Kode disalin; berlaku 2 menit</string>
     <string name="history_title">Aktivitas</string>
+    <string name="target_dir_fallback">Folder tujuan tidak dapat diakses, memakai Download/TransClip</string>
+    <string name="target_dir_title">Folder penerimaan</string>
+    <string name="target_dir_change">Ubah…</string>
+    <string name="target_dir_reset">Reset ke default</string>
     <string name="action_send_files">Kirim file</string>
     <string name="channel_transfers">Transfer file</string>
     <string name="transfer_received">%1$d file diterima, %2$d gagal</string>

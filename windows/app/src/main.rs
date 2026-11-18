@@ -13,6 +13,7 @@ mod paths;
 mod secrets;
 mod single_instance;
 mod strings;
+mod target_dir;
 mod tray;
 mod ui_thread;
 

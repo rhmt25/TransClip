@@ -19,7 +19,7 @@ use proto::msg::{EntryKind, Message};
 use tokio::sync::{mpsc, Semaphore};
 
 use crate::peers::{ManagerEvent, PeerManager};
-pub use store::{FsStore, IncomingStore, PartWriter, PART_SUFFIX};
+pub use store::{FreeSpaceFn, FsStore, IncomingStore, PartWriter, PART_SUFFIX};
 
 /// Largest payload of one `file_chunk`.
 pub const CHUNK: usize = 64 * 1024;

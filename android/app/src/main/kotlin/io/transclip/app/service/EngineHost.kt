@@ -23,7 +23,8 @@ import io.transclip.engine.TransferEvent
 import io.transclip.engine.TransferManager
 import io.transclip.engine.batchesFromPaths
 import io.transclip.proto.DeviceId
-import io.transclip.app.storage.AndroidStore
+import io.transclip.app.R
+import io.transclip.app.storage.TargetDirRepo
 import java.io.File
 import io.transclip.proto.GroupKey
 import io.transclip.proto.Platform
@@ -108,9 +109,14 @@ class EngineHost(private val context: Context) {
         val writer = ClipboardWriter(context) { AppState.paused.value }
         val clipSync = ClipboardSync(manager, writer, me, s)
         sync = clipSync
+        val resolved = TargetDirRepo(context, settings).resolve()
+        if (resolved.fellBack) {
+            AppState.addHistory(context.getString(R.string.target_dir_fallback))
+            TransferNotifier.targetDirFallback(context)
+        }
         val tm = TransferManager(
             manager,
-            AndroidStore(context),
+            resolved.store,
             s,
             io.transclip.engine.TransferConfig(receiveFiles = cfg.receiveFiles),
         )

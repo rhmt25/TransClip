@@ -25,4 +25,18 @@ object TransferNotifier {
             .build()
         runCatching { nm.notify(counter++, n) }
     }
+
+    fun targetDirFallback(context: Context) {
+        val nm = context.getSystemService(NotificationManager::class.java)
+        nm.createNotificationChannel(
+            NotificationChannel(CHANNEL, context.getString(R.string.channel_transfers), NotificationManager.IMPORTANCE_DEFAULT),
+        )
+        val n = NotificationCompat.Builder(context, CHANNEL)
+            .setSmallIcon(android.R.drawable.stat_sys_warning)
+            .setContentTitle(context.getString(R.string.app_name))
+            .setContentText(context.getString(R.string.target_dir_fallback))
+            .setAutoCancel(true)
+            .build()
+        runCatching { nm.notify(counter++, n) }
+    }
 }

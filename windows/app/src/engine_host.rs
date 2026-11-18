@@ -62,11 +62,20 @@ struct Hub {
     online: Mutex<Vec<DeviceId>>,
     commands: mpsc::UnboundedSender<ToEngine>,
     config: Config,
+    /// Configured receive folder (`""` = default); changeable at runtime.
+    download_dir: Mutex<String>,
     paths: Paths,
     device_id: DeviceId,
 }
 
 impl Hub {
+    fn download_dir(&self) -> String {
+        self.download_dir
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone()
+    }
+
     /// Change the status, then tell the tray and IPC clients.
     fn update(&self, change: impl FnOnce(&mut Status)) {
         let snapshot = {
@@ -160,6 +169,27 @@ fn handler(hub: Arc<Hub>) -> Handler {
                         .ok_or("params.paused must be a boolean")?;
                     let _ = hub.commands.send(ToEngine::SetPaused(paused));
                     Ok(Value::Null)
+                }
+                "set_download_dir" => {
+                    // An empty string resets to the default folder.
+                    let dir = params
+                        .get("dir")
+                        .and_then(Value::as_str)
+                        .ok_or("params.dir must be a string")?
+                        .trim()
+                        .to_owned();
+                    if !dir.is_empty() {
+                        crate::target_dir::validate(Path::new(&dir))?;
+                    }
+                    let mut cfg = Config::load(&hub.paths.config_file());
+                    cfg.download_dir.clone_from(&dir);
+                    cfg.save(&hub.paths.config_file())
+                        .map_err(|e| e.to_string())?;
+                    *hub.download_dir
+                        .lock()
+                        .unwrap_or_else(PoisonError::into_inner) = dir;
+                    let _ = hub.commands.send(ToEngine::Reload);
+                    Ok(json!({ "dir": crate::target_dir::resolve(&hub.download_dir()).dir }))
                 }
                 "show_settings" => {
                     let _ = hub.commands.send(ToEngine::ShowSettings);
@@ -367,15 +397,19 @@ async fn start_engine(
     let sink = Arc::new(WindowsSink::new(ui.hwnd(), Arc::clone(paused)));
     let (sync, mut clip_events) =
         ClipboardSync::new(Arc::clone(&mgr), sink, device_id, ClipConfig::default());
-    let receive_dir = if config.download_dir.is_empty() {
-        crate::paths::default_receive_dir()
-            .unwrap_or_else(|_| std::env::temp_dir().join("TransClip"))
-    } else {
-        std::path::PathBuf::from(&config.download_dir)
-    };
+    let configured = hub.download_dir();
+    let target = crate::target_dir::resolve(&configured);
+    if target.fell_back {
+        tracing::warn!("the configured receive folder is not usable; using the default");
+        ui.send(ToUi::Notify {
+            title: strings::APP_NAME.into(),
+            text: "Folder tujuan tidak dapat dipakai, memakai folder default".into(),
+        });
+    }
+    let receive_dir = target.dir;
     let (transfers, mut transfer_events) = TransferManager::new(
         Arc::clone(&mgr),
-        Arc::new(FsStore::new(receive_dir)),
+        Arc::new(FsStore::new(receive_dir).with_free_space(crate::paths::free_space)),
         TransferConfig {
             receive_files: config.receive_files,
             max_file_bytes: config.max_incoming_file_bytes,
@@ -449,6 +483,7 @@ pub async fn run(input: HostInput, ui: UiHandle, mut commands: mpsc::UnboundedRe
         online: Mutex::new(Vec::new()),
         commands: command_tx,
         config: config.clone(),
+        download_dir: Mutex::new(config.download_dir.clone()),
         paths: paths.clone(),
         device_id,
     });
@@ -495,15 +530,8 @@ pub async fn run(input: HostInput, ui: UiHandle, mut commands: mpsc::UnboundedRe
                 }
             }
             ToEngine::OpenDownloads => {
-                let dir = if config.download_dir.is_empty() {
-                    crate::paths::default_receive_dir().ok()
-                } else {
-                    Some(config.download_dir.clone().into())
-                };
-                if let Some(dir) = dir {
-                    let _ = std::fs::create_dir_all(&dir);
-                    open_folder(&dir);
-                }
+                let dir = crate::target_dir::resolve(&hub.download_dir()).dir;
+                open_folder(&dir);
             }
             ToEngine::LocalClip(clip) => {
                 let allowed = match &clip {

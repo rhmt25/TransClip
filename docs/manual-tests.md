@@ -36,3 +36,8 @@ Dijalankan oleh agen, bukan pengganti uji pengguna; tanda `[x]` di TODO tetap me
 * Belum diuji: tile Quick Settings, layar mati lama, reboot, gambar HP → PC, KeePass/Bitwarden, tray (T01), autostart (T03).
 * Transfer file (adb, 2026-11-18): folder `Kiriman Uji` (sub-folder bertingkat, folder kosong, file 3 MB) + file lepas PC → HP: struktur tiba di `Download/TransClip/`, SHA-256 `data.bin` sama dengan sumber. File 2,5 MB HP → PC (lewat Share): SHA-256 sama. Folder kosong tidak dibuat di HP (MediaStore tidak punya folder kosong; dicatat sebagai batasan).
 * Belum diuji: M08 (10 foto), M09 (2 GB + cabut Wi-Fi), radial menu, pemilih perangkat, folder tujuan kustom.
+
+## T04 — Folder tujuan yang dapat diubah (P5-09)
+**Android:** buka TransClip → *Folder penerimaan* → **Ubah…** → pilih folder (mis. Documents/Kiriman) → kirim file/folder dari PC. Harapan: file tiba di folder itu, subfolder utuh, nama bentrok menjadi `nama (1)`. **Reset ke default** → kembali ke `Download/TransClip`. Hapus folder terpilih lewat Files, restart layanan → notifikasi "Folder tujuan tidak dapat diakses" dan file masuk ke default.
+**Windows:** `ipc.ps1 -Method set_download_dir -ParamsJson '{"dir":"D:\Kiriman"}'` (UI Settings menyusul di P4) → kirim dari HP → tiba di folder itu; `{"dir":""}` untuk reset; path relatif ditolak. Menu tray *Buka folder unduhan* membuka folder efektif. Folder tidak bisa ditulis → fallback ke `Downloads\TransClip` + notifikasi.
+Sisa P5-09: tombol Ubah/Reset di jendela Settings Windows (menunggu P4-04, memakai method IPC di atas).

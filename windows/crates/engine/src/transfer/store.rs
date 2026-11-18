@@ -54,14 +54,28 @@ pub trait IncomingStore: Send + Sync + 'static {
 }
 
 /// Plain folder on a local disk.
+/// Platform hook that reports free bytes on the volume holding a folder.
+pub type FreeSpaceFn = fn(&Path) -> Option<u64>;
+
 pub struct FsStore {
     dest: PathBuf,
+    free_fn: Option<FreeSpaceFn>,
 }
 
 impl FsStore {
     /// Receive into `dest` (created when missing).
     pub fn new(dest: impl Into<PathBuf>) -> Self {
-        Self { dest: dest.into() }
+        Self {
+            dest: dest.into(),
+            free_fn: None,
+        }
+    }
+
+    /// Answer `free_bytes` with a platform query (the engine crate has no OS dependency).
+    #[must_use]
+    pub fn with_free_space(mut self, f: FreeSpaceFn) -> Self {
+        self.free_fn = Some(f);
+        self
     }
 
     fn dir_of(&self, root: &str) -> PathBuf {
@@ -125,9 +139,7 @@ impl IncomingStore for FsStore {
     }
 
     fn free_bytes(&self) -> Option<u64> {
-        // Free-space queries need OS APIs the engine crate does not depend on; a platform
-        // wrapper (the daemon, task P5-06) answers with the real value.
-        None
+        self.free_fn.and_then(|f| f(&self.dest))
     }
 }
 

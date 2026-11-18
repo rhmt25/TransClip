@@ -340,7 +340,7 @@ Baca `CLAUDE.md` dulu. Spesifikasi: `docs/PLAN.md` (arsitektur) dan `docs/PROTOC
 * **Lakukan:** `TransfersScreen` (progres, batal, ulangi), `HistoryScreen` (ketuk = salin lagi, tahan = hapus, bersihkan semua).
 * **Selesai jika:** **[MANUAL]** progres bergerak saat transfer besar; batal di HP menghentikan transfer di PC.
 
-### [ ] P5-09 · Folder tujuan yang dapat diubah (Windows & Android)
+### [~] P5-09 · Folder tujuan yang dapat diubah (Windows & Android)
 * **Dep:** P5-06, P5-03, P4-04
 * **Spesifikasi:** PLAN §4.5 (wajib dibaca utuh).
 * **Lakukan — Windows:**

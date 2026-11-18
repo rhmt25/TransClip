@@ -48,6 +48,9 @@ import io.transclip.proto.GroupKey
 import io.transclip.proto.PairingInfo
 import io.transclip.proto.ProtoException
 import io.transclip.app.share.copyToCache
+import io.transclip.app.storage.DEFAULT_RELATIVE_ROOT
+import io.transclip.app.storage.SettingsRepo
+import io.transclip.app.storage.TargetDirRepo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -90,6 +93,20 @@ class MainActivity : ComponentActivity() {
                     val files = withContext(Dispatchers.IO) { uris.mapNotNull { copyToCache(this@MainActivity, it) } }
                     val n = app.engine.sendFiles(files)
                     message = getString(if (n > 0) R.string.share_sent else R.string.share_no_device, n)
+                }
+            }
+        }
+        val targetRepo = remember { TargetDirRepo(this@MainActivity, SettingsRepo(this@MainActivity)) }
+        var targetLabel by remember { mutableStateOf(DEFAULT_RELATIVE_ROOT) }
+        LaunchedEffect(Unit) { targetLabel = targetRepo.label() }
+        val pickTree = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+            if (uri != null) {
+                scope.launch {
+                    targetRepo.choose(uri)
+                    targetLabel = targetRepo.label()
+                    // The receive folder is bound when the engine starts.
+                    app.engine.stop()
+                    app.engine.start()
                 }
             }
         }
@@ -147,6 +164,21 @@ class MainActivity : ComponentActivity() {
                         Text(p.name.ifEmpty { p.id.toHex().take(8) })
                         Text(p.state.name.lowercase(), style = MaterialTheme.typography.bodySmall)
                     }
+                }
+            }
+            item {
+                Text(getString(R.string.target_dir_title), style = MaterialTheme.typography.titleMedium)
+                Text(targetLabel, style = MaterialTheme.typography.bodySmall)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = { pickTree.launch(null) }) { Text(getString(R.string.target_dir_change)) }
+                    OutlinedButton(onClick = {
+                        scope.launch {
+                            targetRepo.reset()
+                            targetLabel = targetRepo.label()
+                            app.engine.stop()
+                            app.engine.start()
+                        }
+                    }) { Text(getString(R.string.target_dir_reset)) }
                 }
             }
             item {

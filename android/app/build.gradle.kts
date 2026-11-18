@@ -57,6 +57,7 @@ dependencies {
     implementation(libs.compose.material3)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.androidx.datastore.preferences)
+    implementation(libs.androidx.documentfile)
     implementation(libs.androidx.lifecycle.runtime.compose)
     testImplementation(kotlin("test"))
     androidTestImplementation(kotlin("test"))

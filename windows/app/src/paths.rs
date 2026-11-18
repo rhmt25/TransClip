@@ -1,7 +1,7 @@
 //! Data locations (PLAN section 5.2).
 
 use std::ffi::OsString;
-use std::os::windows::ffi::OsStringExt;
+use std::os::windows::ffi::{OsStrExt, OsStringExt};
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
@@ -87,6 +87,34 @@ impl Paths {
 /// `<Downloads>\TransClip`, the default receive folder (PLAN section 4.5).
 pub fn default_receive_dir() -> Result<PathBuf> {
     Ok(known_folder(&FOLDERID_Downloads)?.join("TransClip"))
+}
+
+/// Free bytes available to this user on the volume holding `dir` (or its nearest existing parent).
+pub fn free_space(dir: &Path) -> Option<u64> {
+    let mut probe = Some(dir);
+    while let Some(p) = probe {
+        if p.exists() {
+            let wide: Vec<u16> = p
+                .as_os_str()
+                .encode_wide()
+                .chain(std::iter::once(0))
+                .collect();
+            let mut free = 0u64;
+            // SAFETY: `wide` is NUL-terminated and outlives the call; `free` is a valid out pointer
+            // and the two optional out pointers are null.
+            let ok = unsafe {
+                windows::Win32::Storage::FileSystem::GetDiskFreeSpaceExW(
+                    windows::core::PCWSTR(wide.as_ptr()),
+                    Some(&raw mut free),
+                    None,
+                    None,
+                )
+            };
+            return ok.ok().map(|()| free);
+        }
+        probe = p.parent();
+    }
+    None
 }
 
 fn known_folder(id: &GUID) -> Result<PathBuf> {
