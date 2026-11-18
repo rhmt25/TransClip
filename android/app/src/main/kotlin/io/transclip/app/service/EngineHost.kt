@@ -125,6 +125,17 @@ class EngineHost(private val context: Context) {
         manager.status.onEach { AppState.setPeers(it) }.launchIn(s)
         s.launch {
             for (ev in manager.events) {
+                if (ev is io.transclip.engine.ManagerEvent.FrameIn) {
+                    val req = io.transclip.engine.Rekey.parse(ev.frame.message)
+                    if (req != null) {
+                        // Switch to the new key, tell the sender, then reconnect with it.
+                        secrets.setGroupKey(req.newGk)
+                        runCatching { manager.send(req.by, io.transclip.engine.Rekey.ack(req)) }
+                        kotlinx.coroutines.delay(300)
+                        restartDetached()
+                        continue
+                    }
+                }
                 // Clipboard frames are consumed by clipSync, file frames by the transfer manager.
                 clipSync.handleEvent(ev)?.let { tm.handleEvent(it) }
             }
@@ -153,6 +164,26 @@ class EngineHost(private val context: Context) {
         AppState.setRunning(true)
         Log.i(TAG, "engine started on port ${manager.localPort}")
         return true
+    }
+
+    /** Stop and start again from a scope that outlives the engine's own. */
+    private fun restartDetached() {
+        CoroutineScope(SupervisorJob() + Dispatchers.Default).launch {
+            stop()
+            start()
+        }
+    }
+
+    /** Give the group a new key; peers in [revoke] are not told and so drop out. Returns peers notified. */
+    suspend fun rotateKey(revoke: List<DeviceId>): Int {
+        val manager = mgr ?: return 0
+        val newKey = GroupKey.generate()
+        val targets = manager.onlinePeers().filter { it !in revoke }
+        val sent = io.transclip.engine.Rekey.broadcast(manager, newKey, "TransClip", secrets.deviceId(), targets)
+        secrets.setGroupKey(newKey)
+        kotlinx.coroutines.delay(500)
+        restartDetached()
+        return sent
     }
 
     /** Files copied for sharing are only needed while sending; drop the ones older than a day. */

@@ -5,4 +5,5 @@ pub mod discovery;
 pub mod link;
 pub mod peers;
 pub mod queue;
+pub mod rekey;
 pub mod transfer;

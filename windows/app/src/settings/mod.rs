@@ -84,6 +84,9 @@ struct SettingsApp {
     config: Config,
     name_edit: String,
     peers: Vec<(String, String)>,
+    peer_ids: Vec<String>,
+    revoke: Vec<bool>,
+    confirm_rotate: bool,
     pairing: Option<Pairing>,
     join_text: String,
     message: String,
@@ -100,6 +103,9 @@ impl SettingsApp {
             config: Config::default(),
             name_edit: String::new(),
             peers: Vec::new(),
+            peer_ids: Vec::new(),
+            revoke: Vec::new(),
+            confirm_rotate: false,
             pairing: None,
             join_text: String::new(),
             message: String::new(),
@@ -130,6 +136,11 @@ impl SettingsApp {
             }
         }
         if let Ok(Value::Array(list)) = self.backend.call("list_peers", Value::Null) {
+            self.peer_ids = list
+                .iter()
+                .map(|p| p.get("id").and_then(Value::as_str).unwrap_or("").to_owned())
+                .collect();
+            self.revoke.resize(list.len(), false);
             self.peers = list
                 .iter()
                 .map(|p| {
@@ -241,6 +252,42 @@ impl SettingsApp {
         if expired {
             self.pairing = None;
             self.message = "Kode kedaluwarsa. Buat kode baru.".into();
+        }
+        ui.separator();
+        ui.label("Ganti Group Key");
+        ui.weak("Centang perangkat yang dicabut. Perangkat lain menerima kunci baru dan tersambung ulang otomatis.");
+        for (i, (name, _)) in self.peers.iter().enumerate() {
+            if let Some(flag) = self.revoke.get_mut(i) {
+                ui.checkbox(flag, format!("Cabut {name}"));
+            }
+        }
+        if self.confirm_rotate {
+            ui.horizontal(|ui| {
+                if ui.button("Ya, ganti kunci").clicked() {
+                    let revoked: Vec<&String> = self
+                        .peer_ids
+                        .iter()
+                        .zip(&self.revoke)
+                        .filter(|(_, r)| **r)
+                        .map(|(id, _)| id)
+                        .collect();
+                    self.message = match self
+                        .backend
+                        .call("rotate_key", json!({ "revoke": revoked }))
+                    {
+                        Ok(_) => {
+                            "Kunci diganti. Perangkat yang dicabut perlu pairing ulang.".into()
+                        }
+                        Err(e) => format!("Gagal mengganti kunci: {e}"),
+                    };
+                    self.confirm_rotate = false;
+                }
+                if ui.button("Batal").clicked() {
+                    self.confirm_rotate = false;
+                }
+            });
+        } else if self.paired && ui.button("Ganti Group Key…").clicked() {
+            self.confirm_rotate = true;
         }
         ui.separator();
         ui.label("Gabung dengan kode dari perangkat lain");

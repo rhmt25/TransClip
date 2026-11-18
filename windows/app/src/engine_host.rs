@@ -8,7 +8,7 @@ use engine::clip::{Clip, ClipConfig, ClipboardSync};
 use engine::discovery::beacon::{BeaconConfig, BeaconService};
 use engine::discovery::mdns::{MdnsConfig, MdnsService};
 use engine::link::LocalInfo;
-use engine::peers::{ManagerConfig, PeerManager, PeerState, PeerStatus};
+use engine::peers::{ManagerConfig, ManagerEvent, PeerManager, PeerState, PeerStatus};
 use engine::transfer::{scan, FsStore, TransferConfig, TransferEvent, TransferManager};
 use proto::beacon::Platform;
 use proto::group::GroupKey;
@@ -59,6 +59,8 @@ struct Hub {
     ipc: OnceLock<IpcServer>,
     peers: Mutex<Option<watch::Receiver<Vec<PeerStatus>>>>,
     transfers: Mutex<Option<TransferManager>>,
+    /// Peer manager of the running engine, for operations started over IPC.
+    live_mgr: Mutex<Option<Arc<PeerManager>>>,
     online: Mutex<Vec<DeviceId>>,
     commands: mpsc::UnboundedSender<ToEngine>,
     /// Current settings; changed at runtime through IPC.
@@ -223,6 +225,46 @@ fn handler(hub: Arc<Hub>) -> Handler {
                     hub.store_config(cfg)?;
                     let _ = hub.commands.send(ToEngine::Reload);
                     Ok(json!({ "dir": crate::target_dir::resolve(&hub.download_dir()).dir }))
+                }
+                "rotate_key" => {
+                    // params.revoke: device ids (hex) that must not receive the new key.
+                    let revoke: Vec<DeviceId> = params
+                        .get("revoke")
+                        .and_then(Value::as_array)
+                        .map(|a| {
+                            a.iter()
+                                .filter_map(|v| v.as_str().and_then(|h| DeviceId::from_hex(h).ok()))
+                                .collect()
+                        })
+                        .unwrap_or_default();
+                    let mgr = hub
+                        .live_mgr
+                        .lock()
+                        .unwrap_or_else(PoisonError::into_inner)
+                        .clone()
+                        .ok_or("not connected to a group")?;
+                    let new_gk = GroupKey::generate().map_err(|e| e.to_string())?;
+                    let targets: Vec<DeviceId> = mgr
+                        .online_peers()
+                        .into_iter()
+                        .filter(|p| !revoke.contains(p))
+                        .collect();
+                    let sent = engine::rekey::broadcast(
+                        &mgr,
+                        &new_gk,
+                        "TransClip",
+                        hub.device_id,
+                        &targets,
+                    )
+                    .await;
+                    let path = hub.paths.secrets_file();
+                    let mut secrets = Secrets::load_or_create(&path).map_err(|e| e.to_string())?;
+                    secrets.group_key = Some(new_gk);
+                    secrets.save(&path).map_err(|e| e.to_string())?;
+                    // Let the frames leave before the links are torn down.
+                    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+                    let _ = hub.commands.send(ToEngine::Reload);
+                    Ok(json!({ "notified": sent, "revoked": revoke.len() }))
                 }
                 "show_settings" => {
                     let _ = hub.commands.send(ToEngine::ShowSettings);
@@ -485,9 +527,33 @@ async fn start_engine(
         },
     );
     *hub.transfers.lock().unwrap_or_else(PoisonError::into_inner) = Some(transfers.clone());
+    *hub.live_mgr.lock().unwrap_or_else(PoisonError::into_inner) = Some(Arc::clone(&mgr));
     let pump_sync = sync.clone();
+    let rekey_hub = Arc::clone(hub);
+    let rekey_mgr = Arc::clone(&mgr);
     tokio::spawn(async move {
         while let Some(ev) = events.recv().await {
+            if let ManagerEvent::Frame { frame, .. } = &ev {
+                if let Some(req) = engine::rekey::parse(&frame.message) {
+                    // Switch to the new key, tell the sender, then reconnect with it.
+                    let path = rekey_hub.paths.secrets_file();
+                    let saved = Secrets::load_or_create(&path).and_then(|mut s| {
+                        s.group_key = Some(req.new_gk.clone());
+                        s.save(&path)
+                    });
+                    match saved {
+                        Ok(()) => {
+                            let _ = rekey_mgr
+                                .send(&req.by, engine::rekey::ack(&req), Vec::new())
+                                .await;
+                            tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+                            let _ = rekey_hub.commands.send(ToEngine::Reload);
+                        }
+                        Err(e) => tracing::error!(error = %e, "cannot store the new group key"),
+                    }
+                    continue;
+                }
+            }
             // Clipboard and file frames are consumed; the rest needs no action yet.
             if let Some(rest) = pump_sync.handle_event(ev).await {
                 let _ = transfers.handle_event(rest).await;
@@ -548,6 +614,7 @@ pub async fn run(input: HostInput, ui: UiHandle, mut commands: mpsc::UnboundedRe
         ipc: OnceLock::new(),
         peers: Mutex::new(None),
         transfers: Mutex::new(None),
+        live_mgr: Mutex::new(None),
         online: Mutex::new(Vec::new()),
         commands: command_tx,
         config: Mutex::new(config.clone()),
@@ -589,6 +656,7 @@ pub async fn run(input: HostInput, ui: UiHandle, mut commands: mpsc::UnboundedRe
                 }
                 *hub.peers.lock().unwrap_or_else(PoisonError::into_inner) = None;
                 *hub.transfers.lock().unwrap_or_else(PoisonError::into_inner) = None;
+                *hub.live_mgr.lock().unwrap_or_else(PoisonError::into_inner) = None;
                 if let Some(gk) = reload(&hub) {
                     running = start_engine(&hub, &ui, gk, &paused).await;
                     ui.send(ToUi::Notify {

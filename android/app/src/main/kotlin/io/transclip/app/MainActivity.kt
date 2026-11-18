@@ -58,6 +58,9 @@ import com.google.zxing.BarcodeFormat
 import com.google.zxing.qrcode.QRCodeWriter
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
+import androidx.compose.material3.Checkbox
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.ui.Alignment
 import io.transclip.app.share.copyToCache
 import io.transclip.app.storage.DEFAULT_RELATIVE_ROOT
 import io.transclip.app.storage.SettingsRepo
@@ -120,6 +123,36 @@ class MainActivity : ComponentActivity() {
                     app.engine.start()
                 }
             }
+        }
+        var rotateOpen by remember { mutableStateOf(false) }
+        val revoked = remember { mutableStateListOf<io.transclip.proto.DeviceId>() }
+        if (rotateOpen) {
+            AlertDialog(
+                onDismissRequest = { rotateOpen = false },
+                title = { Text(getString(R.string.rotate_title)) },
+                text = {
+                    Column {
+                        Text(getString(R.string.rotate_body))
+                        peers.forEach { p ->
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Checkbox(checked = p.id in revoked, onCheckedChange = { on ->
+                                    if (on) revoked.add(p.id) else revoked.remove(p.id)
+                                })
+                                Text(p.name.ifEmpty { p.id.toHex().take(8) })
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        rotateOpen = false
+                        val gone = revoked.toList()
+                        revoked.clear()
+                        scope.launch { message = getString(R.string.rotate_done, app.engine.rotateKey(gone)) }
+                    }) { Text(getString(R.string.rotate_confirm)) }
+                },
+                dismissButton = { TextButton(onClick = { rotateOpen = false }) { Text(getString(R.string.cancel)) } },
+            )
         }
         var pendingJoin by remember { mutableStateOf<String?>(null) }
         val doJoin: (String) -> Unit = { text ->
@@ -270,6 +303,7 @@ class MainActivity : ComponentActivity() {
                         }
                     }) { Text(getString(R.string.pairing_create)) }
                 }
+                if (paired) OutlinedButton(onClick = { rotateOpen = true }) { Text(getString(R.string.rotate_title)) }
                 if (message.isNotEmpty()) Text(message)
                 if (invite.isNotEmpty()) {
                     qrBitmap(invite)?.let {

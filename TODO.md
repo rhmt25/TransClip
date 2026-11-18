@@ -287,7 +287,7 @@ Baca `CLAUDE.md` dulu. Spesifikasi: `docs/PLAN.md` (arsitektur) dan `docs/PROTOC
 * **Lakukan:** semua opsi PLAN §5.2 (`config.toml`) dan padanannya di Android `SettingsScreen` (nama perangkat, jeda, teks/gambar, terima file, boot, auto-capture, prioritas BT per peer, *Lupakan perangkat*, level log, ekspor log via share).
 * **Selesai jika:** setiap setting berpengaruh nyata (dicek manual per item, dicatat di `manual-tests.md`).
 
-### [ ] P4-05 · Rotasi kunci grup
+### [~] P4-05 · Rotasi kunci grup
 * **Dep:** P4-04, P2-04, P3-02
 * **Lakukan:** pesan `rekey` / `rekey_ack` (PROTOCOL §9.4) di kedua engine; UI *Ganti Group Key* dengan pilihan perangkat yang dicabut; perangkat yang dicabut dihapus dari daftar.
 * **Selesai jika:** test engine Rust: 3 peer, cabut 1 → 2 sisanya reconnect dengan GK baru, yang dicabut gagal handshake; **[MANUAL]** skenario sama dengan perangkat asli.
