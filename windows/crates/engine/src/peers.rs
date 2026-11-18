@@ -5,7 +5,9 @@
 //! through a channel, so there are no locks around peer state.
 
 use std::collections::{HashMap, HashSet};
+use std::future::Future;
 use std::net::SocketAddr;
+use std::pin::Pin;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
@@ -32,6 +34,31 @@ pub const MAX_PEERS: usize = 10;
 /// Maximum number of TCP connections that may be in the handshake at the same time.
 const MAX_PENDING_HANDSHAKES: usize = 16;
 
+/// How a link reaches the peer.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Transport {
+    /// TCP over the local network.
+    Lan,
+    /// Bluetooth RFCOMM.
+    Bluetooth,
+}
+
+/// A byte stream the platform opened (a Bluetooth socket, or a test pipe).
+pub trait BtStream: AsyncRead + AsyncWrite + Unpin + Send + 'static {}
+impl<T: AsyncRead + AsyncWrite + Unpin + Send + 'static> BtStream for T {}
+
+/// Boxed platform stream.
+pub type BoxedStream = Box<dyn BtStream>;
+
+/// Future returned by [`BtDialer::connect`].
+pub type BtConnectFuture = Pin<Box<dyn Future<Output = std::io::Result<BoxedStream>> + Send>>;
+
+/// Opens Bluetooth connections to paired devices; implemented by the platform.
+pub trait BtDialer: Send + Sync {
+    /// Connect to `peer`. Resolves with an error when the device is not reachable.
+    fn connect(&self, peer: DeviceId) -> BtConnectFuture;
+}
+
 /// Manager settings. [`ManagerConfig::new`] gives the production defaults.
 #[derive(Clone)]
 pub struct ManagerConfig {
@@ -53,6 +80,14 @@ pub struct ManagerConfig {
     pub max_peers: usize,
     /// Timeout for connect plus handshake when dialing.
     pub connect_timeout: Duration,
+    /// Bluetooth dialer; `None` disables the Bluetooth fallback.
+    pub bt: Option<Arc<dyn BtDialer>>,
+    /// Open Bluetooth when the LAN link has been down this long (PLAN section 4.2).
+    pub bt_down_after: Duration,
+    /// Close Bluetooth when the LAN link has been up this long.
+    pub bt_close_after: Duration,
+    /// Maximum simultaneous Bluetooth links.
+    pub bt_max_links: usize,
 }
 
 impl ManagerConfig {
@@ -68,6 +103,10 @@ impl ManagerConfig {
             fallback_after: Duration::from_secs(30),
             max_peers: MAX_PEERS,
             connect_timeout: Duration::from_secs(15),
+            bt: None,
+            bt_down_after: Duration::from_secs(10),
+            bt_close_after: Duration::from_secs(60),
+            bt_max_links: 3,
         }
     }
 }
@@ -94,6 +133,8 @@ pub struct PeerStatus {
     pub state: PeerState,
     /// Last known address.
     pub addr: Option<SocketAddr>,
+    /// Transport of the link in use, when online.
+    pub transport: Option<Transport>,
 }
 
 /// Events for the application.
@@ -134,6 +175,7 @@ enum Internal {
     Ready {
         link: u64,
         dir: Dir,
+        via: Transport,
         info: PeerInfo,
         handle: LinkHandle,
         accept: oneshot::Sender<bool>,
@@ -143,6 +185,8 @@ enum Internal {
         reason: CloseReason,
     },
     DialFailed(DeviceId),
+    BtDialFailed(DeviceId),
+    SetBtPriority(HashSet<DeviceId>),
     Shutdown,
 }
 
@@ -151,17 +195,36 @@ type Handles = Arc<Mutex<HashMap<DeviceId, LinkHandle>>>;
 struct Active {
     link: u64,
     dir: Dir,
+    via: Transport,
     handle: LinkHandle,
 }
 
 struct Peer {
     name: String,
     addr: Option<SocketAddr>,
+    /// The link in use (LAN preferred).
     active: Option<Active>,
+    /// The other transport's link, kept as a spare.
+    standby: Option<Active>,
     dialing: bool,
+    bt_dialing: bool,
     backoff: Duration,
     next_try: Instant,
+    bt_next_try: Instant,
+    /// Since when there has been no LAN link.
     offline_since: Instant,
+    /// Since when a LAN link has been up.
+    lan_up_since: Option<Instant>,
+}
+
+impl Peer {
+    fn links(&self) -> impl Iterator<Item = &Active> {
+        self.active.iter().chain(self.standby.iter())
+    }
+
+    fn has(&self, via: Transport) -> bool {
+        self.links().any(|a| a.via == via)
+    }
 }
 
 impl Peer {
@@ -183,6 +246,9 @@ pub struct PeerManager {
     status: watch::Receiver<Vec<PeerStatus>>,
     local_addr: SocketAddr,
     actor: Option<JoinHandle<()>>,
+    cfg: ManagerConfig,
+    link_ids: Arc<AtomicU64>,
+    events_tx: mpsc::Sender<ManagerEvent>,
 }
 
 /// Next reconnect delay after a failed attempt.
@@ -219,6 +285,8 @@ impl PeerManager {
             cmd_tx.clone(),
             event_tx.clone(),
         ));
+        let (cfg_keep, events_keep, ids_keep) =
+            (cfg.clone(), event_tx.clone(), Arc::clone(&link_ids));
         let actor = Actor {
             cfg,
             peers: HashMap::new(),
@@ -228,6 +296,7 @@ impl PeerManager {
             cmd_tx: cmd_tx.clone(),
             events: event_tx,
             status: status_tx,
+            bt_priority: HashSet::new(),
         };
         let actor = tokio::spawn(actor.run(seen, cmd_rx, listener_task));
         Ok((
@@ -237,9 +306,40 @@ impl PeerManager {
                 status: status_rx,
                 local_addr,
                 actor: Some(actor),
+                cfg: cfg_keep,
+                link_ids: ids_keep,
+                events_tx: events_keep,
             },
             event_rx,
         ))
+    }
+
+    /// Hand over a connection accepted by a platform listener (Bluetooth server socket).
+    pub fn accept_stream(&self, stream: BoxedStream) {
+        let (cfg, cmd, events) = (self.cfg.clone(), self.cmd.clone(), self.events_tx.clone());
+        let link = self.link_ids.fetch_add(1, Ordering::Relaxed);
+        tokio::spawn(async move {
+            let conn = tokio::time::timeout(cfg.connect_timeout, respond(stream, &cfg.gk)).await;
+            if let Ok(Ok(conn)) = conn {
+                let (handle, rx) = spawn_link(conn, cfg.local.clone(), cfg.link);
+                pump(
+                    link,
+                    Dir::Inbound,
+                    Transport::Bluetooth,
+                    None,
+                    handle,
+                    rx,
+                    cmd,
+                    events,
+                )
+                .await;
+            }
+        });
+    }
+
+    /// Peers that should get a Bluetooth link when the LAN is down (PLAN section 4.2).
+    pub async fn set_bt_priority(&self, peers: HashSet<DeviceId>) {
+        let _ = self.cmd.send(Internal::SetBtPriority(peers)).await;
     }
 
     /// Address the TCP listener is bound to.
@@ -330,7 +430,17 @@ async fn accept_loop(
             drop(permit);
             if let Ok(conn) = conn {
                 let (handle, rx) = spawn_link(conn, cfg.local.clone(), cfg.link);
-                pump(link, Dir::Inbound, None, handle, rx, cmd, events).await;
+                pump(
+                    link,
+                    Dir::Inbound,
+                    Transport::Lan,
+                    None,
+                    handle,
+                    rx,
+                    cmd,
+                    events,
+                )
+                .await;
             }
         });
     }
@@ -338,9 +448,11 @@ async fn accept_loop(
 
 /// Forward one link's events. Returns `false` when the link never became ready or was
 /// not accepted.
+#[allow(clippy::too_many_arguments)]
 async fn pump(
     link: u64,
     dir: Dir,
+    via: Transport,
     expect: Option<DeviceId>,
     handle: LinkHandle,
     mut rx: mpsc::Receiver<LinkEvent>,
@@ -363,6 +475,7 @@ async fn pump(
     let ready = Internal::Ready {
         link,
         dir,
+        via,
         info,
         handle: handle.clone(),
         accept: accept_tx,
@@ -411,6 +524,7 @@ struct Actor {
     cmd_tx: mpsc::Sender<Internal>,
     events: mpsc::Sender<ManagerEvent>,
     status: watch::Sender<Vec<PeerStatus>>,
+    bt_priority: HashSet<DeviceId>,
 }
 
 impl Actor {
@@ -432,6 +546,7 @@ impl Actor {
                     let ids: Vec<DeviceId> = self.peers.keys().copied().collect();
                     for id in ids {
                         self.maybe_dial(id);
+                        self.bt_policy(id);
                     }
                 }
             }
@@ -458,6 +573,7 @@ impl Actor {
                 name: p.name.clone(),
                 state: p.state(),
                 addr: p.addr,
+                transport: p.active.as_ref().map(|a| a.via),
             })
             .collect();
         list.sort_by_key(|s| s.id);
@@ -470,10 +586,14 @@ impl Actor {
             name,
             addr,
             active: None,
+            standby: None,
             dialing: false,
+            bt_dialing: false,
             backoff: self.cfg.backoff_min,
             next_try: now,
+            bt_next_try: now,
             offline_since: now,
+            lan_up_since: None,
         }
     }
 
@@ -522,7 +642,7 @@ impl Actor {
         };
         let Some(addr) = peer.addr else { return };
         let allowed = local < id || now.duration_since(peer.offline_since) >= fallback;
-        if peer.active.is_some() || peer.dialing || now < peer.next_try || !allowed {
+        if peer.has(Transport::Lan) || peer.dialing || now < peer.next_try || !allowed {
             return;
         }
         peer.dialing = true;
@@ -539,7 +659,9 @@ impl Actor {
                 .ok()
                 .flatten();
             let ready = match conn {
-                Some(conn) => dial_pump(conn, link, id, &cfg, cmd.clone(), events).await,
+                Some(conn) => {
+                    dial_pump(conn, link, id, Transport::Lan, &cfg, cmd.clone(), events).await
+                }
                 None => false,
             };
             if !ready {
@@ -554,11 +676,12 @@ impl Actor {
             Internal::Ready {
                 link,
                 dir,
+                via,
                 info,
                 handle,
                 accept,
             } => {
-                let ok = self.on_ready(link, dir, info, handle).await;
+                let ok = self.on_ready(link, dir, via, info, handle).await;
                 let _ = accept.send(ok);
             }
             Internal::Closed { link, reason } => self.on_closed(link, reason).await,
@@ -571,11 +694,105 @@ impl Actor {
                 }
                 self.publish();
             }
+            Internal::BtDialFailed(id) => {
+                if let Some(p) = self.peers.get_mut(&id) {
+                    p.bt_dialing = false;
+                    p.bt_next_try = Instant::now() + Duration::from_secs(10);
+                }
+                self.publish();
+            }
+            Internal::SetBtPriority(set) => self.bt_priority = set,
             Internal::Shutdown => {}
         }
     }
 
-    async fn on_ready(&mut self, link: u64, dir: Dir, info: PeerInfo, handle: LinkHandle) -> bool {
+    /// Bluetooth fallback and release (PLAN section 4.2): open a Bluetooth link for a priority
+    /// peer once the LAN has been down for `bt_down_after`, close it after the LAN has been
+    /// stable for `bt_close_after`.
+    fn bt_policy(&mut self, id: DeviceId) {
+        let now = Instant::now();
+        let Some(dialer) = self.cfg.bt.clone() else {
+            return;
+        };
+        let bt_links = self
+            .peers
+            .values()
+            .filter(|p| p.has(Transport::Bluetooth))
+            .count()
+            + self.peers.values().filter(|p| p.bt_dialing).count();
+        let priority = self.bt_priority.contains(&id);
+        let (down_after, close_after) = (self.cfg.bt_down_after, self.cfg.bt_close_after);
+        let max = self.cfg.bt_max_links;
+        let Some(peer) = self.peers.get_mut(&id) else {
+            return;
+        };
+        if peer.has(Transport::Lan) {
+            let stable = peer
+                .lan_up_since
+                .is_some_and(|t| now.duration_since(t) >= close_after);
+            if stable {
+                let bt = [peer.active.as_ref(), peer.standby.as_ref()]
+                    .into_iter()
+                    .flatten()
+                    .find(|a| a.via == Transport::Bluetooth)
+                    .map(|a| a.handle.clone());
+                if let Some(h) = bt {
+                    tokio::spawn(async move { h.close("lan_restored").await });
+                }
+            }
+            return;
+        }
+        let lan_down = now.duration_since(peer.offline_since) >= down_after;
+        if !(priority && lan_down)
+            || peer.has(Transport::Bluetooth)
+            || peer.bt_dialing
+            || now < peer.bt_next_try
+            || bt_links >= max
+        {
+            return;
+        }
+        peer.bt_dialing = true;
+        let link = self.link_ids.fetch_add(1, Ordering::Relaxed);
+        let (cfg, cmd, events) = (self.cfg.clone(), self.cmd_tx.clone(), self.events.clone());
+        tokio::spawn(async move {
+            let attempt = async {
+                let stream = dialer.connect(id).await.ok()?;
+                initiate(stream, &cfg.gk).await.ok()
+            };
+            let conn = tokio::time::timeout(cfg.connect_timeout, attempt)
+                .await
+                .ok()
+                .flatten();
+            let ready = match conn {
+                Some(conn) => {
+                    dial_pump(
+                        conn,
+                        link,
+                        id,
+                        Transport::Bluetooth,
+                        &cfg,
+                        cmd.clone(),
+                        events,
+                    )
+                    .await
+                }
+                None => false,
+            };
+            if !ready {
+                let _ = cmd.send(Internal::BtDialFailed(id)).await;
+            }
+        });
+        self.publish();
+    }
+
+    async fn on_ready(
+        &mut self,
+        link: u64,
+        dir: Dir,
+        via: Transport,
+        info: PeerInfo,
+        handle: LinkHandle,
+    ) -> bool {
         let id = info.id;
         let local = self.cfg.local.id;
         if id == local || !self.admit(id, &info.name).await {
@@ -585,10 +802,15 @@ impl Actor {
         let min = self.cfg.backoff_min;
         let peer = self.peers.entry(id).or_insert(fresh);
         if dir == Dir::Outbound {
-            peer.dialing = false;
+            match via {
+                Transport::Lan => peer.dialing = false,
+                Transport::Bluetooth => peer.bt_dialing = false,
+            }
         }
         let was_online = peer.active.is_some();
-        if let Some(old) = &peer.active {
+        // Two links over the same transport are a duplicate: the one started by the smaller id
+        // wins. Links over different transports coexist; the LAN one is used.
+        if let Some(old) = peer.links().find(|a| a.via == via) {
             let old_init = initiator(old.dir, local, id);
             let new_init = initiator(dir, local, id);
             if new_init > old_init {
@@ -606,20 +828,37 @@ impl Actor {
                 old_handle.close("duplicate").await;
             });
         }
-        peer.name = info.name.clone();
-        peer.backoff = min;
-        peer.active = Some(Active {
+        let mut links: Vec<Active> = peer
+            .active
+            .take()
+            .into_iter()
+            .chain(peer.standby.take())
+            .filter(|a| a.via != via)
+            .collect();
+        links.push(Active {
             link,
             dir,
-            handle: handle.clone(),
+            via,
+            handle,
         });
-        self.handles
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .insert(id, handle);
+        links.sort_by_key(|a| a.via != Transport::Lan);
+        peer.active = Some(links.remove(0));
+        peer.standby = links.pop();
+        peer.name = info.name.clone();
+        peer.backoff = min;
+        if via == Transport::Lan && peer.lan_up_since.is_none() {
+            peer.lan_up_since = Some(Instant::now());
+        }
+        let current = peer.active.as_ref().map(|a| a.handle.clone());
+        if let Some(h) = current {
+            self.handles
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+                .insert(id, h);
+        }
         self.publish();
         if !was_online {
-            tracing::info!(peer = %short(id), "peer online");
+            tracing::info!(peer = %short(id), ?via, "peer online");
             let _ = self.events.send(ManagerEvent::Online(info)).await;
         }
         true
@@ -630,13 +869,35 @@ impl Actor {
         let found = self
             .peers
             .iter_mut()
-            .find(|(_, p)| p.active.as_ref().is_some_and(|a| a.link == link));
+            .find(|(_, p)| p.links().any(|a| a.link == link));
         let Some((&id, peer)) = found else {
-            return; // a replaced duplicate: not the current link
+            return; // a replaced duplicate: not a current link
         };
-        peer.active = None;
         let now = Instant::now();
-        peer.offline_since = now;
+        let closed_lan = peer
+            .links()
+            .any(|a| a.link == link && a.via == Transport::Lan);
+        if closed_lan {
+            peer.offline_since = now;
+            peer.lan_up_since = None;
+        }
+        if peer.standby.as_ref().is_some_and(|a| a.link == link) {
+            peer.standby = None;
+            self.publish();
+            return;
+        }
+        // The link in use ended: fall back to the spare, if any, without going offline.
+        peer.active = peer.standby.take();
+        if let Some(next) = &peer.active {
+            let h = next.handle.clone();
+            self.handles
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+                .insert(id, h);
+            tracing::info!(peer = %short(id), "switched to the spare link");
+            self.publish();
+            return;
+        }
         peer.next_try = now + min;
         self.handles
             .lock()
@@ -652,6 +913,7 @@ async fn dial_pump<S>(
     conn: SecureConn<S>,
     link: u64,
     expect: DeviceId,
+    via: Transport,
     cfg: &ManagerConfig,
     cmd: mpsc::Sender<Internal>,
     events: mpsc::Sender<ManagerEvent>,
@@ -660,7 +922,17 @@ where
     S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
 {
     let (handle, rx) = spawn_link(conn, cfg.local.clone(), cfg.link);
-    pump(link, Dir::Outbound, Some(expect), handle, rx, cmd, events).await
+    pump(
+        link,
+        Dir::Outbound,
+        via,
+        Some(expect),
+        handle,
+        rx,
+        cmd,
+        events,
+    )
+    .await
 }
 
 fn short(id: DeviceId) -> String {
@@ -761,6 +1033,149 @@ mod tests {
                 }
             }
         }
+    }
+
+    struct FakeBt {
+        target: Arc<Mutex<Option<Arc<PeerManager>>>>,
+    }
+
+    impl BtDialer for FakeBt {
+        fn connect(&self, _peer: DeviceId) -> BtConnectFuture {
+            let target = Arc::clone(&self.target);
+            Box::pin(async move {
+                let t = target
+                    .lock()
+                    .unwrap_or_else(PoisonError::into_inner)
+                    .clone()
+                    .ok_or_else(|| std::io::Error::other("no bluetooth peer"))?;
+                let (a, b) = tokio::io::duplex(64 * 1024);
+                t.accept_stream(Box::new(b));
+                Ok(Box::new(a) as BoxedStream)
+            })
+        }
+    }
+
+    async fn wait_until(what: &str, mut cond: impl FnMut() -> bool) {
+        for _ in 0..200 {
+            if cond() {
+                return;
+            }
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
+        panic!("timed out waiting for: {what}");
+    }
+
+    fn transport_of(n: &Node, id: u8) -> Option<Transport> {
+        n.mgr
+            .status()
+            .borrow()
+            .iter()
+            .find(|s| s.id == DeviceId([id; 16]))
+            .and_then(|s| s.transport)
+    }
+
+    #[tokio::test]
+    async fn bluetooth_takes_over_when_lan_dies_and_hands_back_when_lan_returns() {
+        let target: Arc<Mutex<Option<Arc<PeerManager>>>> = Arc::default();
+        let mut ca = cfg(1, 7);
+        ca.bt = Some(Arc::new(FakeBt {
+            target: Arc::clone(&target),
+        }));
+        ca.bt_down_after = Duration::from_millis(300);
+        ca.bt_close_after = Duration::from_millis(600);
+        let mut a = node(ca).await;
+        a.mgr
+            .set_bt_priority(HashSet::from([DeviceId([2; 16])]))
+            .await;
+        let b = node(cfg(2, 7)).await;
+        a.seen.send(seen(2, b.mgr.local_addr())).await.unwrap();
+        expect_online(&mut a, 2).await;
+        assert_eq!(transport_of(&a, 2), Some(Transport::Lan));
+
+        // The LAN peer disappears and comes back as a device only reachable over Bluetooth.
+        b.mgr.shutdown().await;
+        loop {
+            if matches!(next_event(&mut a).await, ManagerEvent::Offline { .. }) {
+                break;
+            }
+        }
+        let Node {
+            mgr: b2_mgr,
+            events: mut b2_events,
+            seen: _b2_seen,
+        } = node(cfg(2, 7)).await;
+        let b2_addr = b2_mgr.local_addr();
+        let b2_mgr = Arc::new(b2_mgr);
+        *target.lock().unwrap_or_else(PoisonError::into_inner) = Some(Arc::clone(&b2_mgr));
+
+        wait_until("bluetooth link", || {
+            transport_of(&a, 2) == Some(Transport::Bluetooth)
+        })
+        .await;
+        // Messages flow over Bluetooth.
+        a.mgr
+            .send(&DeviceId([2; 16]), probe(), Vec::new())
+            .await
+            .unwrap();
+        loop {
+            let ev = tokio::time::timeout(Duration::from_secs(5), b2_events.recv())
+                .await
+                .unwrap()
+                .unwrap();
+            if matches!(ev, ManagerEvent::Frame { frame, .. } if matches!(frame.message, Message::Pull { .. }))
+            {
+                break;
+            }
+        }
+
+        // The LAN is reachable again: it takes over, Bluetooth is released, peer never goes offline.
+        a.seen.send(seen(2, b2_addr)).await.unwrap();
+        wait_until("lan link back", || {
+            transport_of(&a, 2) == Some(Transport::Lan)
+        })
+        .await;
+        tokio::time::sleep(Duration::from_millis(1000)).await;
+        assert_eq!(transport_of(&a, 2), Some(Transport::Lan));
+        let mut offline = 0;
+        while let Ok(Some(ev)) =
+            tokio::time::timeout(Duration::from_millis(50), a.events.recv()).await
+        {
+            if matches!(ev, ManagerEvent::Offline { .. }) {
+                offline += 1;
+            }
+        }
+        assert_eq!(offline, 0, "no offline event while handing back to the LAN");
+        assert_eq!(a.mgr.online_peers(), vec![DeviceId([2; 16])]);
+        a.mgr
+            .send(&DeviceId([2; 16]), probe(), Vec::new())
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn bluetooth_is_not_used_without_priority_or_while_lan_is_up() {
+        let target: Arc<Mutex<Option<Arc<PeerManager>>>> = Arc::default();
+        let mut ca = cfg(1, 7);
+        ca.bt = Some(Arc::new(FakeBt {
+            target: Arc::clone(&target),
+        }));
+        ca.bt_down_after = Duration::from_millis(100);
+        let mut a = node(ca).await;
+        let b = Arc::new(node(cfg(2, 7)).await.mgr);
+        *target.lock().unwrap_or_else(PoisonError::into_inner) = Some(Arc::clone(&b));
+        // Not a priority peer: even with a reachable Bluetooth device nothing is opened.
+        a.seen
+            .send(seen(2, "127.0.0.1:1".parse().unwrap()))
+            .await
+            .unwrap();
+        tokio::time::sleep(Duration::from_millis(800)).await;
+        assert!(a.mgr.online_peers().is_empty());
+        // With priority and a working path it does connect.
+        a.mgr
+            .set_bt_priority(HashSet::from([DeviceId([2; 16])]))
+            .await;
+        expect_online(&mut a, 2).await;
+        assert_eq!(transport_of(&a, 2), Some(Transport::Bluetooth));
     }
 
     #[test]

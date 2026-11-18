@@ -53,7 +53,7 @@ impl Default for Config {
             receive_files: true,
             download_dir: String::new(),
             autostart: true,
-            radial_trigger: "Control".into(),
+            radial_trigger: "Shift".into(),
             radial_radius_px: 140,
             bt_priority_peers: Vec::new(),
             bt_inline_image_max: 2 * 1024 * 1024,

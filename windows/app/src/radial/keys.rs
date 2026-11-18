@@ -6,7 +6,7 @@
 use windows::Win32::UI::Input::KeyboardAndMouse::GetAsyncKeyState;
 
 /// Default trigger.
-pub const DEFAULT: &str = "Control";
+pub const DEFAULT: &str = "Shift";
 
 /// Names with the virtual-key codes that count as "pressed". Left and right modifier keys are one
 /// trigger: pressing either side works.
@@ -64,7 +64,7 @@ pub fn name_to_vks(name: &str) -> Option<Vec<i32>> {
 pub fn vks_or_default(name: &str) -> Vec<i32> {
     name_to_vks(name)
         .or_else(|| name_to_vks(DEFAULT))
-        .unwrap_or_else(|| vec![0x11])
+        .unwrap_or_else(|| vec![0x10])
 }
 
 /// Config name for a virtual-key code (left and right variants share a name).
@@ -162,7 +162,7 @@ mod tests {
         assert_eq!(canonical("???"), None);
         assert_eq!(canonical("VK:ZZ"), None);
         assert_eq!(canonical("F99"), None);
-        assert_eq!(vks_or_default("???"), vec![0x11]);
+        assert_eq!(vks_or_default("???"), vec![0x10]);
     }
 
     #[test]
