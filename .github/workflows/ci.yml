@@ -36,5 +36,7 @@ jobs:
           distribution: temurin
           java-version: 17
       - uses: gradle/actions/setup-gradle@v4
+      - run: chmod +x gradlew
+        working-directory: android
       - run: ./gradlew :proto:test :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
         working-directory: android
