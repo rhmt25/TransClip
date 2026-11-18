@@ -60,3 +60,6 @@ Format: `D-<nomor> · <tanggal> · <judul>` → Keputusan, Alasan, Alternatif ya
 * **Keputusan:** `file_stream`/`file_chunk`/`file_end` memakai koneksi kontrol yang sama lewat antrean data `Link`, yang sudah memberi prioritas pada frame kontrol di antara chunk.
 * **Alasan:** satu koneksi, satu handshake, satu aturan dial/duplikat; clipboard tidak terblokir karena prioritas dilakukan per frame (≤ 64 KiB). Menghapus kebutuhan routing koneksi berperan `file` dan batas koneksi paralel.
 * **Dampak:** PROTOCOL §9.3 diperbarui; kedua engine memakai jalur yang sama untuk LAN dan BT. Throughput satu koneksi TCP sudah memadai untuk LAN rumah.
+
+## D-014 — Pemicu menu radial lewat polling, bukan hook global (2026-11-18)
+PLAN §5.4 menyebut `WH_MOUSE_LL`/`WH_KEYBOARD_LL`. Diganti dengan timer 40 ms di thread UI yang membaca `GetAsyncKeyState` (tombol kiri mouse, tombol pemicu, Esc) dan posisi kursor. Efek aktivasi sama (tahan klik kiri + geser > `SM_CXDRAG` + tombol pemicu), tetapi tidak ada hook yang bisa memperlambat input seluruh desktop atau dilepas Windows bila lambat. Overlay, `IDropTarget`, dan geometri sesuai PLAN. Sub-ring "Lainnya…" tidak dibuat: grup maksimal 10 perangkat, jadi paling banyak 9 peer + "Semua".

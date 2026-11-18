@@ -313,7 +313,7 @@ Baca `CLAUDE.md` dulu. Spesifikasi: `docs/PLAN.md` (arsitektur) dan `docs/PROTOC
 * **Lakukan:** padanan P5-01; `IncomingStore` Android menulis ke default `MediaStore.Downloads` (`Download/TransClip/…`). Folder kustom ditambahkan di P5-09, jadi rancang `IncomingStore` sebagai interface dengan dua implementasi (`MediaStoreDownloads`, `SafTree`).
 * **Selesai jika:** test JVM interop live (skip bila env tidak ada): kirim/terima folder dengan `interop_peer`, hash cocok, resume bekerja.
 
-### [ ] P5-04 · Windows: Radial Drop Menu
+### [~] P5-04 · Windows: Radial Drop Menu
 * **Dep:** P5-01, P2-06, P0-10
 * **File:** `app/src/radial/{hook.rs,overlay.rs,drop_target.rs,render.rs,geometry.rs}`
 * **Lakukan:** PLAN §5.4 sesuai keputusan S3. `geometry.rs` (sudut → segmen, sub-ring) diuji unit. Render dengan Direct2D atau tiny-skia ke DIB premultiplied.

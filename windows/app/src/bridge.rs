@@ -37,6 +37,15 @@ pub enum ToUi {
         /// Body text.
         text: String,
     },
+    /// Online devices for the radial menu.
+    Peers(Vec<(proto::ids::DeviceId, String)>),
+    /// Radial menu settings.
+    RadialConfig {
+        /// Trigger key name.
+        trigger: String,
+        /// Ring radius in pixels at 100 % scaling.
+        radius: u32,
+    },
     /// Close the UI and leave the message loop.
     Quit,
 }
@@ -58,6 +67,13 @@ pub enum ToEngine {
     LocalClip(engine::clip::Clip),
     /// The group key changed on disk: restart the engine.
     Reload,
+    /// Files were dropped on the radial menu; `to` is one device, or all online devices when `None`.
+    RadialDrop {
+        /// Dropped files and folders.
+        paths: Vec<std::path::PathBuf>,
+        /// Target device.
+        to: Option<proto::ids::DeviceId>,
+    },
     /// Shut down.
     Quit,
 }

@@ -168,6 +168,7 @@ enum Tab {
     Devices,
     Pairing,
     General,
+    Radial,
     Advanced,
 }
 
@@ -484,6 +485,32 @@ impl SettingsApp {
         }
     }
 
+    fn ui_radial(&mut self, ui: &mut egui::Ui) {
+        ui.label("Tahan klik kiri, seret file, lalu tekan tombol pemicu: lingkaran perangkat muncul di kursor. Lepas file di atas perangkat tujuan.");
+        let mut trigger = self.config.radial_trigger.clone();
+        ui.horizontal(|ui| {
+            ui.label("Tombol pemicu");
+            egui::ComboBox::from_id_salt("radial-trigger")
+                .selected_text(&trigger)
+                .show_ui(ui, |ui| {
+                    for t in ["RControl", "LControl", "RShift", "LShift", "RAlt", "LAlt"] {
+                        ui.selectable_value(&mut trigger, t.to_owned(), t);
+                    }
+                });
+        });
+        if trigger != self.config.radial_trigger {
+            self.set_config(json!({ "radial_trigger": trigger }));
+        }
+        let mut radius = self.config.radial_radius_px;
+        if ui
+            .add(egui::Slider::new(&mut radius, 60..=400).text("Radius (px)"))
+            .drag_stopped()
+        {
+            self.set_config(json!({ "radial_radius_px": radius }));
+        }
+        ui.weak("Esc membatalkan. Seret dari aplikasi yang dijalankan sebagai Administrator tidak didukung (UIPI).");
+    }
+
     fn ui_advanced(&mut self, ui: &mut egui::Ui) {
         ui.label(format!("Port: {}", self.config.port));
         ui.horizontal(|ui| {
@@ -530,6 +557,7 @@ impl eframe::App for SettingsApp {
                 ui.selectable_value(&mut self.tab, Tab::Devices, "Perangkat");
                 ui.selectable_value(&mut self.tab, Tab::Pairing, "Pairing");
                 ui.selectable_value(&mut self.tab, Tab::General, "Umum");
+                ui.selectable_value(&mut self.tab, Tab::Radial, "Radial");
                 ui.selectable_value(&mut self.tab, Tab::Advanced, "Lanjutan");
             });
             ui.separator();
@@ -537,6 +565,7 @@ impl eframe::App for SettingsApp {
                 Tab::Devices => self.ui_devices(ui),
                 Tab::Pairing => self.ui_pairing(ui),
                 Tab::General => self.ui_general(ui),
+                Tab::Radial => self.ui_radial(ui),
                 Tab::Advanced => self.ui_advanced(ui),
             }
             if !self.message.is_empty() {

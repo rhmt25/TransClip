@@ -10,6 +10,7 @@ mod engine_host;
 mod ipc;
 mod logging;
 mod paths;
+mod radial;
 mod secrets;
 mod sendto;
 mod settings;

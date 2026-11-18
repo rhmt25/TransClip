@@ -329,6 +329,10 @@ fn handler(hub: Arc<Hub>) -> Handler {
                         serde_json::from_value(merged).map_err(|e| e.to_string())?;
                     cfg.validate();
                     hub.store_config(cfg.clone())?;
+                    hub.ui.send(ToUi::RadialConfig {
+                        trigger: cfg.radial_trigger.clone(),
+                        radius: cfg.radial_radius_px,
+                    });
                     if cfg.autostart != old.autostart
                         && std::env::var_os(crate::paths::DATA_DIR_ENV).is_none()
                     {
@@ -434,6 +438,10 @@ async fn start_engine(
     paused: &Arc<AtomicBool>,
 ) -> Option<Running> {
     let config = &hub.cfg();
+    hub.ui.send(ToUi::RadialConfig {
+        trigger: config.radial_trigger.clone(),
+        radius: config.radial_radius_px,
+    });
     let device_id = hub.device_id;
     let gid = gk.group_id();
     let (seen_tx, seen_rx) = mpsc::channel(64);
@@ -510,6 +518,13 @@ async fn start_engine(
                 .map(|p| p.id)
                 .collect();
             hub2.update(|s| s.online = online);
+            let radial: Vec<(DeviceId, String)> = watch
+                .borrow()
+                .iter()
+                .filter(|p| p.state == PeerState::Online)
+                .map(|p| (p.id, p.name.clone()))
+                .collect();
+            hub2.ui.send(ToUi::Peers(radial));
             if let Some(ipc) = hub2.ipc.get() {
                 ipc.publish(Event {
                     event: "peers_changed".into(),
@@ -705,6 +720,16 @@ pub async fn run(input: HostInput, ui: UiHandle, mut commands: mpsc::UnboundedRe
                 }
             }
             ToEngine::ShowSettings | ToEngine::Pair => hub.show_settings(),
+            ToEngine::RadialDrop { paths, to } => {
+                let to = to.map_or_else(|| "all".to_owned(), |id| id.to_hex());
+                if let Err(e) = hub.send_paths(&paths, &to) {
+                    tracing::warn!(error = %e, "radial send failed");
+                    hub.ui.send(ToUi::Notify {
+                        title: strings::APP_NAME.into(),
+                        text: "Tidak ada perangkat yang online".into(),
+                    });
+                }
+            }
             ToEngine::SendFiles => {
                 // The tray asked for "Kirim file...": pick files, then send to every online device.
                 let hub = Arc::clone(&hub);

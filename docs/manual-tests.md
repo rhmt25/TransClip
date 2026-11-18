@@ -60,3 +60,9 @@ HP: *Scan QR* (izinkan kamera) → arahkan ke QR di jendela Settings PC (tab Pai
 * **Teks:** aktifkan layanan Aksesibilitas TransClip → salin teks di aplikasi mana pun → muncul di PC tanpa menekan tombol (diuji 2026-11-18 di Redmi 22021211RG, lulus).
 * **Screenshot:** Pengaturan → *Kirim screenshot otomatis* (izin foto) → ambil screenshot → tertempel sebagai gambar di PC (lulus 2026-11-18).
 * **Catatan:** banyak ROM tidak menaruh screenshot atau gambar "salin" di clipboard sistem; saran gambar di Gboard bukan isi clipboard sistem. Gambar yang benar-benar disalin ke clipboard (mis. Chrome *Salin gambar*) ditangkap lewat layanan Aksesibilitas bila aplikasinya mengisi clipboard sistem.
+
+## T09 — Menu radial (P5-04, M07)
+1. Pastikan minimal satu HP online. Di Explorer, **tahan klik kiri pada sebuah file, geser, lalu tekan Right Ctrl** (tombol bisa diganti di Settings → Radial). Lingkaran perangkat muncul di kursor.
+2. Lepas file di segmen perangkat → tiba di HP. Segmen "Semua" → ke semua perangkat online. Lepas di tengah lingkaran atau tekan **Esc** → batal.
+3. Ulangi dengan banyak file (20) dan satu folder bertingkat. Uji juga di monitor kedua dengan skala DPI berbeda.
+4. Drag dari aplikasi yang dijalankan sebagai Administrator tidak didukung (UIPI); pastikan tidak crash.

@@ -12,11 +12,11 @@ use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, GetMessageW,
-    GetWindowLongPtrW, PostQuitMessage, RegisterClassExW, RegisterWindowMessageW,
-    SetWindowLongPtrW, TranslateMessage, CREATESTRUCTW, GWLP_USERDATA, MSG, PBT_APMRESUMEAUTOMATIC,
-    WINDOW_EX_STYLE, WINDOW_STYLE, WM_CLIPBOARDUPDATE, WM_COMMAND, WM_CONTEXTMENU, WM_CREATE,
-    WM_DESTROY, WM_LBUTTONDBLCLK, WM_NCCREATE, WM_POWERBROADCAST, WM_RBUTTONUP, WM_TIMER,
-    WNDCLASSEXW,
+    GetWindowLongPtrW, KillTimer, PostQuitMessage, RegisterClassExW, RegisterWindowMessageW,
+    SetTimer, SetWindowLongPtrW, TranslateMessage, CREATESTRUCTW, GWLP_USERDATA, MSG,
+    PBT_APMRESUMEAUTOMATIC, WINDOW_EX_STYLE, WINDOW_STYLE, WM_CLIPBOARDUPDATE, WM_COMMAND,
+    WM_CONTEXTMENU, WM_CREATE, WM_DESTROY, WM_LBUTTONDBLCLK, WM_NCCREATE, WM_POWERBROADCAST,
+    WM_RBUTTONUP, WM_TIMER, WNDCLASSEXW,
 };
 
 use crate::bridge::{Status, ToEngine, ToUi, UiHandle, WM_BRIDGE};
@@ -31,6 +31,7 @@ struct State {
     status: Status,
     taskbar_created: u32,
     clip: crate::clipboard::Watcher,
+    radial: crate::radial::Radial,
 }
 
 impl State {
@@ -42,6 +43,8 @@ impl State {
                     self.tray.update(&s);
                 }
                 ToUi::Notify { title, text } => self.tray.notify(&self.status, &title, &text),
+                ToUi::Peers(list) => self.radial.set_peers(list),
+                ToUi::RadialConfig { trigger, radius } => self.radial.set_config(&trigger, radius),
                 ToUi::Quit => {
                     // SAFETY: `hwnd` is our own window, destroyed on the thread that created it.
                     unsafe {
@@ -121,6 +124,18 @@ unsafe extern "system" fn wnd_proc(
             state.command(hwnd, wparam.0 & 0xffff);
             LRESULT(0)
         }
+        crate::radial::WM_RADIAL_HOVER => {
+            state.radial.on_hover();
+            LRESULT(0)
+        }
+        crate::radial::WM_RADIAL_END => {
+            state.radial.hide();
+            LRESULT(0)
+        }
+        WM_TIMER if wparam.0 == crate::radial::RADIAL_TIMER => {
+            state.radial.tick();
+            LRESULT(0)
+        }
         WM_POWERBROADCAST => {
             // After sleep or hibernate every socket is stale: restart the engine so peers
             // reconnect at once instead of waiting for time-outs.
@@ -140,6 +155,8 @@ unsafe extern "system" fn wnd_proc(
             LRESULT(0)
         }
         WM_DESTROY => {
+            let _ = KillTimer(Some(hwnd), crate::radial::RADIAL_TIMER);
+            state.radial.shutdown();
             state.clip.stop(hwnd);
             state.tray.remove();
             PostQuitMessage(0);
@@ -162,6 +179,7 @@ pub fn run(
 ) -> Result<()> {
     let (tx, rx) = mpsc::channel();
     // The pointer given to CreateWindowExW must stay valid until the loop ends.
+    let radial_tx = engine.clone();
     let state = Box::new(State {
         tray: Tray::new(HWND::default()),
         engine,
@@ -170,6 +188,7 @@ pub fn run(
         // SAFETY: the string literal is a valid wide string.
         taskbar_created: unsafe { RegisterWindowMessageW(w!("TaskbarCreated")) },
         clip: crate::clipboard::Watcher::default(),
+        radial: crate::radial::Radial::new(radial_tx),
     });
     let state_ptr = Box::into_raw(state);
 
@@ -216,6 +235,13 @@ pub fn run(
         if !(*state_ptr).clip.start(hwnd) {
             tracing::warn!("could not register the clipboard listener");
         }
+        (*state_ptr).radial.init(hwnd);
+        SetTimer(
+            Some(hwnd),
+            crate::radial::RADIAL_TIMER,
+            crate::radial::POLL_MS,
+            None,
+        );
         if !(*state_ptr).tray.add(&(*state_ptr).status) {
             tracing::warn!("could not add the tray icon (Explorer not ready?)");
         }
