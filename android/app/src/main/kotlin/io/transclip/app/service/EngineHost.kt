@@ -56,6 +56,8 @@ class EngineHost(private val context: Context) {
     private var beacon: BeaconService? = null
     private var nsd: NsdDiscovery? = null
     private var lock: WifiManager.MulticastLock? = null
+    private var allowText = true
+    private var allowImages = true
 
     val isRunning: Boolean get() = mgr != null
 
@@ -107,7 +109,16 @@ class EngineHost(private val context: Context) {
         nsd = NsdDiscovery(context, gid, me, manager.localPort, cfg.deviceName, seen, s).also { it.start() }
 
         val writer = ClipboardWriter(context) { AppState.paused.value }
-        val clipSync = ClipboardSync(manager, writer, me, s)
+        // Incoming items of a disabled kind are dropped here; outgoing ones in submit().
+        val gate = object : io.transclip.engine.ClipboardSink {
+            override fun apply(clip: io.transclip.engine.RemoteClip) {
+                val allowed = if (clip.clip is Clip.Text) cfg.syncText else cfg.syncImages
+                if (allowed) writer.apply(clip)
+            }
+        }
+        allowText = cfg.syncText
+        allowImages = cfg.syncImages
+        val clipSync = ClipboardSync(manager, gate, me, s)
         sync = clipSync
         val resolved = TargetDirRepo(context, settings).resolve()
         if (resolved.fellBack) {
@@ -218,6 +229,7 @@ class EngineHost(private val context: Context) {
     suspend fun submit(clip: Clip): Submitted? {
         if (AppState.paused.value) return null
         val syncer = sync ?: return null
+        if (if (clip is Clip.Text) !allowText else !allowImages) return null
         return syncer.submitLocal(clip)
     }
 

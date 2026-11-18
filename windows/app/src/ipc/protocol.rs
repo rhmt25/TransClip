@@ -52,7 +52,7 @@ pub enum Incoming {
 }
 
 /// Methods the daemon understands (PLAN section 5.6).
-pub const METHODS: [&str; 16] = [
+pub const METHODS: [&str; 17] = [
     "get_status",
     "get_config",
     "set_config",
@@ -66,6 +66,7 @@ pub const METHODS: [&str; 16] = [
     "set_paused",
     "open_log_dir",
     "set_download_dir",
+    "set_sendto",
     "show_settings",
     "send_files",
     "quit",

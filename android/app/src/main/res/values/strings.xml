@@ -39,6 +39,14 @@
     <string name="rotate_body">Pilih perangkat yang dicabut. Perangkat lain menerima kunci baru dan tersambung ulang otomatis; yang dicabut harus pairing ulang.</string>
     <string name="rotate_confirm">Ganti kunci</string>
     <string name="rotate_done">Kunci diganti, %d perangkat diberi tahu</string>
+    <string name="settings_title">Pengaturan</string>
+    <string name="settings_name">Nama perangkat</string>
+    <string name="settings_apply">Terapkan</string>
+    <string name="settings_sync_text">Sinkronkan teks</string>
+    <string name="settings_sync_images">Sinkronkan gambar</string>
+    <string name="settings_receive_files">Terima file</string>
+    <string name="settings_autostart">Jalankan saat HP menyala</string>
+    <string name="settings_share_log">Bagikan log</string>
     <string name="action_send_files">Kirim file</string>
     <string name="channel_transfers">Transfer file</string>
     <string name="transfer_received">%1$d file diterima, %2$d gagal</string>

@@ -62,6 +62,107 @@ impl Backend {
     }
 }
 
+/// Small window listing the online devices; sends `paths` to the chosen one (SendTo shortcut).
+pub fn run_send_picker(paths: Vec<String>) -> i32 {
+    let Ok(rt) = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(1)
+        .enable_all()
+        .build()
+    else {
+        return 1;
+    };
+    let backend = Arc::new(Backend { rt });
+    let options = eframe::NativeOptions {
+        viewport: egui::ViewportBuilder::default()
+            .with_title("Kirim dengan TransClip")
+            .with_inner_size([360.0, 300.0]),
+        ..Default::default()
+    };
+    let app = PickerApp {
+        backend,
+        paths,
+        peers: Vec::new(),
+        last_poll: None,
+        message: String::new(),
+    };
+    match eframe::run_native("TransClip", options, Box::new(move |_| Ok(Box::new(app)))) {
+        Ok(()) => 0,
+        Err(_) => 1,
+    }
+}
+
+struct PickerApp {
+    backend: Arc<Backend>,
+    paths: Vec<String>,
+    peers: Vec<(String, String)>,
+    last_poll: Option<Instant>,
+    message: String,
+}
+
+impl PickerApp {
+    fn refresh(&mut self) {
+        self.last_poll = Some(Instant::now());
+        match self.backend.call("list_peers", Value::Null) {
+            Ok(Value::Array(list)) => {
+                self.peers = list
+                    .iter()
+                    .filter(|p| p.get("state").and_then(Value::as_str) == Some("online"))
+                    .map(|p| {
+                        (
+                            p.get("id").and_then(Value::as_str).unwrap_or("").to_owned(),
+                            p.get("name")
+                                .and_then(Value::as_str)
+                                .unwrap_or("?")
+                                .to_owned(),
+                        )
+                    })
+                    .collect();
+            }
+            Ok(_) => {}
+            Err(e) => self.message = format!("TransClip tidak berjalan: {e}"),
+        }
+    }
+
+    /// Send and close the window on success.
+    fn send(&mut self, ctx: &egui::Context, to: &str) {
+        match self
+            .backend
+            .call("send_files", json!({ "paths": self.paths, "to": to }))
+        {
+            Ok(_) => ctx.send_viewport_cmd(egui::ViewportCommand::Close),
+            Err(e) => self.message = format!("Gagal mengirim: {e}"),
+        }
+    }
+}
+
+impl eframe::App for PickerApp {
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        if self.last_poll.is_none_or(|t| t.elapsed() >= POLL_EVERY) {
+            self.refresh();
+        }
+        ui.ctx().request_repaint_after(POLL_EVERY);
+        let ctx = ui.ctx().clone();
+        egui::CentralPanel::default().show(ui, |ui| {
+            ui.heading(format!("Kirim {} item ke…", self.paths.len()));
+            if self.peers.is_empty() {
+                ui.label("Tidak ada perangkat yang online.");
+            }
+            let peers = self.peers.clone();
+            if peers.len() > 1 && ui.button("Semua perangkat").clicked() {
+                self.send(&ctx, "all");
+            }
+            for (id, name) in peers {
+                if ui.button(&name).clicked() {
+                    self.send(&ctx, &id);
+                }
+            }
+            if !self.message.is_empty() {
+                ui.colored_label(egui::Color32::from_rgb(200, 90, 30), &self.message);
+            }
+        });
+    }
+}
+
 #[derive(PartialEq, Clone, Copy)]
 enum Tab {
     Devices,
@@ -332,6 +433,18 @@ impl SettingsApp {
                 "paused": c.paused, "sync_text": c.sync_text, "sync_images": c.sync_images,
                 "receive_files": c.receive_files, "autostart": c.autostart,
             }));
+        }
+        let mut sendto = crate::sendto::is_enabled();
+        if ui
+            .checkbox(&mut sendto, "Tampilkan di menu Kirim ke (klik kanan)")
+            .changed()
+        {
+            if let Err(e) = self
+                .backend
+                .call("set_sendto", json!({ "enabled": sendto }))
+            {
+                self.message = format!("Gagal mengatur menu Kirim ke: {e}");
+            }
         }
         ui.separator();
         ui.label("Folder tujuan");

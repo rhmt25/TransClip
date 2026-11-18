@@ -13,6 +13,8 @@ pub enum Mode {
     Quit,
     /// Send these files or folders to all online devices.
     Send(Vec<String>),
+    /// Pick the target device(s) in a small window, then send (used by the SendTo shortcut).
+    SendUi(Vec<String>),
 }
 
 /// Parsed arguments.
@@ -45,6 +47,13 @@ pub fn parse<I: IntoIterator<Item = String>>(args: I) -> Result<Cli, String> {
                 }
                 cli.mode = Mode::Send(paths);
             }
+            "--send-ui" => {
+                let paths: Vec<String> = it.by_ref().collect();
+                if paths.is_empty() {
+                    return Err("--send-ui needs at least one file or folder".into());
+                }
+                cli.mode = Mode::SendUi(paths);
+            }
             "--pair" => {
                 let uri = it.next().ok_or("--pair needs a transclip:// URI")?;
                 cli.mode = Mode::Pair(uri);
@@ -72,6 +81,13 @@ mod tests {
 
     fn p(args: &[&str]) -> Result<Cli, String> {
         parse(args.iter().map(|s| (*s).to_string()))
+    }
+
+    #[test]
+    fn send_ui_collects_the_paths() {
+        let c = p(&["--send-ui", "a.txt", "b"]).unwrap();
+        assert_eq!(c.mode, Mode::SendUi(vec!["a.txt".into(), "b".into()]));
+        assert!(p(&["--send-ui"]).is_err());
     }
 
     #[test]

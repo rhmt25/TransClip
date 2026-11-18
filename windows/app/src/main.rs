@@ -11,6 +11,7 @@ mod ipc;
 mod logging;
 mod paths;
 mod secrets;
+mod sendto;
 mod settings;
 mod single_instance;
 mod strings;
@@ -86,6 +87,16 @@ fn run() -> Result<i32> {
                 "join_group",
                 serde_json::json!({ "uri": uri }),
             ));
+        }
+        cli::Mode::SendUi(paths) => {
+            let abs: Vec<String> = paths
+                .iter()
+                .map(|p| {
+                    std::path::absolute(p)
+                        .map_or_else(|_| p.clone(), |a| a.to_string_lossy().into_owned())
+                })
+                .collect();
+            return Ok(settings::run_send_picker(abs));
         }
         cli::Mode::Send(paths) => {
             // Relative paths are resolved here: the daemon runs in another folder.

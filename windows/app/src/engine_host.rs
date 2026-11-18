@@ -79,6 +79,39 @@ impl Hub {
             .clone()
     }
 
+    /// Start sending `paths` to one device (hex id) or to every online device (`"all"`).
+    fn send_paths(&self, paths: &[std::path::PathBuf], to: &str) -> Result<(), String> {
+        let tm = self
+            .transfers
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone()
+            .ok_or("not in a group yet")?;
+        let targets: Vec<DeviceId> = if to == "all" {
+            self.online
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+                .clone()
+        } else {
+            vec![DeviceId::from_hex(to).map_err(|_| "bad device id")?]
+        };
+        if targets.is_empty() {
+            return Err("no device is online".into());
+        }
+        let batches = scan::batch_from_paths(paths).map_err(|e| e.to_string())?;
+        for peer in targets {
+            for batch in batches.clone() {
+                let tm = tm.clone();
+                tokio::spawn(async move {
+                    if let Err(e) = tm.send_batch(peer, batch).await {
+                        tracing::warn!(error = %e, "could not start the transfer");
+                    }
+                });
+            }
+        }
+        Ok(())
+    }
+
     fn download_dir(&self) -> String {
         self.cfg().download_dir
     }
@@ -226,6 +259,14 @@ fn handler(hub: Arc<Hub>) -> Handler {
                     let _ = hub.commands.send(ToEngine::Reload);
                     Ok(json!({ "dir": crate::target_dir::resolve(&hub.download_dir()).dir }))
                 }
+                "set_sendto" => {
+                    let enabled = params
+                        .get("enabled")
+                        .and_then(Value::as_bool)
+                        .ok_or("params.enabled must be a boolean")?;
+                    crate::sendto::set_enabled(enabled).map_err(|e| e.to_string())?;
+                    Ok(Value::Null)
+                }
                 "rotate_key" => {
                     // params.revoke: device ids (hex) that must not receive the new key.
                     let revoke: Vec<DeviceId> = params
@@ -355,34 +396,7 @@ fn handler(hub: Arc<Hub>) -> Handler {
                         .filter_map(|v| v.as_str().map(Into::into))
                         .collect();
                     let to = params.get("to").and_then(Value::as_str).unwrap_or("all");
-                    let tm = hub
-                        .transfers
-                        .lock()
-                        .unwrap_or_else(PoisonError::into_inner)
-                        .clone()
-                        .ok_or("not in a group yet")?;
-                    let targets: Vec<DeviceId> = if to == "all" {
-                        hub.online
-                            .lock()
-                            .unwrap_or_else(PoisonError::into_inner)
-                            .clone()
-                    } else {
-                        vec![DeviceId::from_hex(to).map_err(|_| "bad device id")?]
-                    };
-                    if targets.is_empty() {
-                        return Err("no device is online".into());
-                    }
-                    let batches = scan::batch_from_paths(&paths).map_err(|e| e.to_string())?;
-                    for peer in targets {
-                        for batch in batches.clone() {
-                            let tm = tm.clone();
-                            tokio::spawn(async move {
-                                if let Err(e) = tm.send_batch(peer, batch).await {
-                                    tracing::warn!(error = %e, "could not start the transfer");
-                                }
-                            });
-                        }
-                    }
+                    hub.send_paths(&paths, to)?;
                     Ok(Value::Null)
                 }
                 "quit" => {
@@ -692,7 +706,19 @@ pub async fn run(input: HostInput, ui: UiHandle, mut commands: mpsc::UnboundedRe
             }
             ToEngine::ShowSettings | ToEngine::Pair => hub.show_settings(),
             ToEngine::SendFiles => {
-                tracing::info!(?cmd, "UI request (handled in a later task)");
+                // The tray asked for "Kirim file...": pick files, then send to every online device.
+                let hub = Arc::clone(&hub);
+                tokio::task::spawn_blocking(move || {
+                    if let Some(files) = rfd::FileDialog::new().pick_files() {
+                        if let Err(e) = hub.send_paths(&files, "all") {
+                            tracing::warn!(error = %e, "tray send failed");
+                            hub.ui.send(ToUi::Notify {
+                                title: strings::APP_NAME.into(),
+                                text: "Tidak ada perangkat yang online".into(),
+                            });
+                        }
+                    }
+                });
             }
         }
     }

@@ -110,6 +110,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+        val settingsRepo = remember { SettingsRepo(this@MainActivity) }
         val targetRepo = remember { TargetDirRepo(this@MainActivity, SettingsRepo(this@MainActivity)) }
         var targetLabel by remember { mutableStateOf(DEFAULT_RELATIVE_ROOT) }
         LaunchedEffect(Unit) { targetLabel = targetRepo.label() }
@@ -253,6 +254,34 @@ class MainActivity : ComponentActivity() {
                 }
             }
             item {
+                val cfg by settingsRepo.flow.collectAsStateWithLifecycle(initialValue = null)
+                cfg?.let { c ->
+                    var nameEdit by remember(c.deviceName) { mutableStateOf(c.deviceName) }
+                    fun apply(change: (io.transclip.app.storage.Settings) -> io.transclip.app.storage.Settings) {
+                        scope.launch {
+                            settingsRepo.update(change)
+                            // Settings are read when the engine starts.
+                            app.engine.stop()
+                            app.engine.start()
+                        }
+                    }
+                    Text(getString(R.string.settings_title), style = MaterialTheme.typography.titleMedium)
+                    OutlinedTextField(
+                        value = nameEdit,
+                        onValueChange = { nameEdit = it },
+                        label = { Text(getString(R.string.settings_name)) },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    OutlinedButton(onClick = { apply { it.copy(deviceName = nameEdit) } }) {
+                        Text(getString(R.string.settings_apply))
+                    }
+                    SettingSwitch(getString(R.string.settings_sync_text), c.syncText) { v -> apply { it.copy(syncText = v) } }
+                    SettingSwitch(getString(R.string.settings_sync_images), c.syncImages) { v -> apply { it.copy(syncImages = v) } }
+                    SettingSwitch(getString(R.string.settings_receive_files), c.receiveFiles) { v -> apply { it.copy(receiveFiles = v) } }
+                    SettingSwitch(getString(R.string.settings_autostart), c.autoStart) { v -> apply { it.copy(autoStart = v) } }
+                }
+            }
+            item {
                 Text(getString(R.string.target_dir_title), style = MaterialTheme.typography.titleMedium)
                 Text(targetLabel, style = MaterialTheme.typography.bodySmall)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -345,3 +374,11 @@ private fun qrBitmap(text: String, size: Int = 640): Bitmap? = runCatching {
     val px = IntArray(size * size) { i -> if (m.get(i % size, i / size)) Color.BLACK else Color.WHITE }
     Bitmap.createBitmap(px, size, size, Bitmap.Config.ARGB_8888)
 }.getOrNull()
+
+@androidx.compose.runtime.Composable
+private fun SettingSwitch(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(label)
+        androidx.compose.material3.Switch(checked = checked, onCheckedChange = onChange)
+    }
+}

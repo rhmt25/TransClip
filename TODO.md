@@ -282,7 +282,7 @@ Baca `CLAUDE.md` dulu. Spesifikasi: `docs/PLAN.md` (arsitektur) dan `docs/PROTOC
 * **Lakukan:** *Scan QR* (zxing-android-embedded, minta izin kamera), *Tempel kode*, *Buat grup*, *Tampilkan QR* (zxing core → Bitmap), validasi kedaluwarsa, konfirmasi bila mengganti grup yang ada.
 * **Selesai jika:** **[MANUAL]** scan QR dari PC → terhubung < 5 s; Android A ↔ Android B via QR.
 
-### [ ] P4-04 · Pengaturan lengkap (kedua platform)
+### [~] P4-04 · Pengaturan lengkap (kedua platform)
 * **Dep:** P4-02, P4-03
 * **Lakukan:** semua opsi PLAN §5.2 (`config.toml`) dan padanannya di Android `SettingsScreen` (nama perangkat, jeda, teks/gambar, terima file, boot, auto-capture, prioritas BT per peer, *Lupakan perangkat*, level log, ekspor log via share).
 * **Selesai jika:** setiap setting berpengaruh nyata (dicek manual per item, dicatat di `manual-tests.md`).
@@ -319,7 +319,7 @@ Baca `CLAUDE.md` dulu. Spesifikasi: `docs/PLAN.md` (arsitektur) dan `docs/PROTOC
 * **Lakukan:** PLAN §5.4 sesuai keputusan S3. `geometry.rs` (sudut → segmen, sub-ring) diuji unit. Render dengan Direct2D atau tiny-skia ke DIB premultiplied.
 * **Selesai jika:** unit test geometri (N=1..12, batas sudut); **[MANUAL]** drag 1 file, banyak file, dan 1 folder dari Explorer ke segmen peer & "Semua" → tiba di tujuan; Esc membatalkan; multi-monitor dengan DPI berbeda tampil benar.
 
-### [ ] P5-05 · Windows: SendTo & dialog kirim
+### [~] P5-05 · Windows: SendTo & dialog kirim
 * **Dep:** P5-01, P2-08
 * **Lakukan:** `transclip.exe --send <paths…>` → kirim ke daemon via pipe → popup pemilih perangkat (egui kecil atau menu radial di tengah layar); buat/hapus shortcut `SendTo` dari setting; menu tray *Kirim file…*.
 * **Selesai jika:** **[MANUAL]** klik kanan file → Kirim ke → TransClip → pilih perangkat → terkirim.
