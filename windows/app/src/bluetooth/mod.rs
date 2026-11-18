@@ -193,6 +193,9 @@ impl WinBtDialer {
     }
 }
 
+/// Device that answered last time; tried first so the usual phone connects in one step.
+static LAST_GOOD: std::sync::Mutex<Option<HSTRING>> = std::sync::Mutex::new(None);
+
 fn try_connect_blocking() -> io::Result<StreamSocket> {
     init_apartment();
     let selector =
@@ -202,7 +205,15 @@ fn try_connect_blocking() -> io::Result<StreamSocket> {
         .map_err(|e| winrt_err(&e))?;
     let service = RfcommServiceId::FromUuid(SERVICE_UUID).map_err(|e| winrt_err(&e))?;
     let mut last = io::Error::other("no paired Bluetooth devices");
-    for info in &devices {
+    let mut ordered: Vec<DeviceInformation> = devices.into_iter().collect();
+    let preferred = LAST_GOOD
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .clone();
+    if let Some(pref) = preferred {
+        ordered.sort_by_key(|d| d.Id().map_or(true, |id| id != pref));
+    }
+    for info in &ordered {
         let attempt = (|| -> windows::core::Result<StreamSocket> {
             let id: HSTRING = info.Id()?;
             let device = BluetoothDevice::FromIdAsync(&id)?.join()?;
@@ -222,7 +233,14 @@ fn try_connect_blocking() -> io::Result<StreamSocket> {
             Ok(socket)
         })();
         match attempt {
-            Ok(socket) => return Ok(socket),
+            Ok(socket) => {
+                if let Ok(id) = info.Id() {
+                    *LAST_GOOD
+                        .lock()
+                        .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(id);
+                }
+                return Ok(socket);
+            }
             Err(e) => last = winrt_err(&e),
         }
     }
@@ -236,7 +254,9 @@ impl BtDialer for WinBtDialer {
             let socket = rt
                 .spawn_blocking(try_connect_blocking)
                 .await
-                .map_err(io::Error::other)??;
+                .map_err(io::Error::other)?
+                .inspect_err(|e| tracing::debug!(error = %e, "bluetooth connect failed"))?;
+            tracing::debug!("bluetooth connected");
             wrap_socket(socket)
         })
     }

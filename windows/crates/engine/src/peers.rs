@@ -104,7 +104,7 @@ impl ManagerConfig {
             max_peers: MAX_PEERS,
             connect_timeout: Duration::from_secs(15),
             bt: None,
-            bt_down_after: Duration::from_secs(10),
+            bt_down_after: Duration::from_secs(5),
             bt_close_after: Duration::from_secs(60),
             bt_max_links: 3,
         }
@@ -249,6 +249,15 @@ pub struct PeerManager {
     cfg: ManagerConfig,
     link_ids: Arc<AtomicU64>,
     events_tx: mpsc::Sender<ManagerEvent>,
+}
+
+/// Detect a vanished peer (Wi-Fi switched off) in about 15 s (Windows always sends 10 probes) instead of waiting for the 90 s
+/// link time-out, so a Bluetooth fallback can start quickly.
+fn tune_keepalive(stream: &TcpStream) {
+    let ka = socket2::TcpKeepalive::new()
+        .with_time(Duration::from_secs(4))
+        .with_interval(Duration::from_secs(1));
+    let _ = socket2::SockRef::from(stream).set_tcp_keepalive(&ka);
 }
 
 /// Next reconnect delay after a failed attempt.
@@ -435,6 +444,7 @@ async fn accept_loop(
         let link = link_ids.fetch_add(1, Ordering::Relaxed);
         tokio::spawn(async move {
             let _ = stream.set_nodelay(true);
+            tune_keepalive(&stream);
             let conn = respond(stream, &cfg.gk).await;
             drop(permit);
             if let Ok(conn) = conn {
@@ -661,6 +671,7 @@ impl Actor {
             let attempt = async {
                 let stream = TcpStream::connect(addr).await.ok()?;
                 stream.set_nodelay(true).ok()?;
+                tune_keepalive(&stream);
                 initiate(stream, &cfg.gk).await.ok()
             };
             let conn = tokio::time::timeout(cfg.connect_timeout, attempt)
@@ -706,7 +717,7 @@ impl Actor {
             Internal::BtDialFailed(id) => {
                 if let Some(p) = self.peers.get_mut(&id) {
                     p.bt_dialing = false;
-                    p.bt_next_try = Instant::now() + Duration::from_secs(10);
+                    p.bt_next_try = Instant::now() + Duration::from_secs(3);
                 }
                 self.publish();
             }

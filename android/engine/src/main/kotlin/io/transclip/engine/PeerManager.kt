@@ -46,7 +46,7 @@ data class ManagerConfig(
     /** Bluetooth dialer; null disables the Bluetooth fallback. */
     val bt: BtDialer? = null,
     /** Open Bluetooth when the LAN link has been down this long (PLAN section 4.2). */
-    val btDownAfterMs: Long = 10_000,
+    val btDownAfterMs: Long = 5_000,
     /** Close Bluetooth when the LAN link has been up this long. */
     val btCloseAfterMs: Long = 60_000,
     val btMaxLinks: Int = 3,
@@ -358,7 +358,7 @@ class PeerManager(
                 is Internal.BtDialFailed -> {
                     peers[msg.id]?.let {
                         it.btDialing = false
-                        it.btNextTryMs = nowMs() + 10_000
+                        it.btNextTryMs = nowMs() + 3_000
                     }
                     publish()
                 }

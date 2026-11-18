@@ -124,7 +124,7 @@ Pemisahan `proto` / `engine` vs `app` membuat logika inti bisa diuji dengan `car
 ### 4.2 Pemilihan transport (mode Priority/Lazy)
 
 1. Jika peer punya link LAN `Online` → pakai LAN.
-2. Jika LAN ke peer itu mati **> 10 detik** **dan** peer ditandai *prioritas Bluetooth* **dan** sudah paired di OS → buka link BT.
+2. Jika LAN ke peer itu mati **> 5 detik** **dan** peer ditandai *prioritas Bluetooth* **dan** sudah paired di OS → buka link BT.
 3. Saat LAN pulih dan stabil **60 detik** → tutup link BT (`bye reason:"lan_restored"`).
 4. Maksimal **3** link BT aktif bersamaan.
 5. Gambar lewat BT: jika ukuran ≤ `bt_inline_image_max` (default 2 MiB) kirim langsung, selain itu kirim `announce`; penerima menampilkan notifikasi "Gambar tersedia — ketuk untuk ambil" yang memicu `pull`.

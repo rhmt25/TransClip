@@ -63,3 +63,6 @@ Format: `D-<nomor> · <tanggal> · <judul>` → Keputusan, Alasan, Alternatif ya
 
 ## D-014 — Pemicu menu radial lewat polling, bukan hook global (2026-11-18)
 PLAN §5.4 menyebut `WH_MOUSE_LL`/`WH_KEYBOARD_LL`. Diganti dengan timer 40 ms di thread UI yang membaca `GetAsyncKeyState` (tombol kiri mouse, tombol pemicu, Esc) dan posisi kursor. Efek aktivasi sama (tahan klik kiri + geser > `SM_CXDRAG` + tombol pemicu), tetapi tidak ada hook yang bisa memperlambat input seluruh desktop atau dilepas Windows bila lambat. Overlay, `IDropTarget`, dan geometri sesuai PLAN. Sub-ring "Lainnya…" tidak dibuat: grup maksimal 10 perangkat, jadi paling banyak 9 peer + "Semua".
+
+## D-015 — Failover Bluetooth lebih cepat (2026-11-18)
+Uji nyata (PC + POCO F4, Wi-Fi HP dimatikan) memakan 97 detik sebelum Bluetooth aktif. Perbaikan: TCP keep-alive 4 s + 1 s pada semua socket LAN (peer yang hilang terdeteksi ±15 s, bukan menunggu time-out link 90 s); Bluetooth dibuka setelah LAN mati > **5 s** (sebelumnya 10 s); percobaan ulang setelah 3 s; perangkat Bluetooth yang berhasil terakhir dicoba lebih dulu. Hasil: 13 detik, dengan teks terkirim lewat Bluetooth, dan kembali ke LAN dalam 10 detik setelah Wi-Fi menyala.

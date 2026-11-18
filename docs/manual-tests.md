@@ -90,3 +90,11 @@ Gambar > 2 MiB lewat Bluetooth tidak dikirim langsung: HP menampilkan notifikasi
 | Jendela Settings | tampil, 5 tab; tangkapan layar diperiksa |
 | Autostart | kunci Run terisi |
 | Tidak dapat diotomasi | ikon tray (Windows 11 tidak mengekspos ikon tray ke UI Automation), layanan Aksesibilitas (perlu dinyalakan ulang di HP setelah pemasangan ulang), drag radial dari Explorer, tidur/bangun PC, Bluetooth saat Wi-Fi mati, SAF picker |
+
+### Tambahan T11 (uji nyata, sesi yang sama)
+| Uji | Hasil |
+|---|---|
+| Pairing ulang lewat tautan dalam + dialog *Ganti grup?* | lulus (tombol ditekan lewat uiautomator) |
+| Salin otomatis HP → PC (teks, gambar di clipboard sistem) | lulus lewat layanan Aksesibilitas |
+| **Menu radial** (sumber drag sintetis + Shift + mouse) | **lulus:** lingkaran muncul, segmen tersorot, drop mengirim file ke HP; drop di pusat = batal, tidak ada transfer |
+| **Bluetooth failover (M10)** | **lulus:** Wi-Fi HP mati → Bluetooth aktif dalam **13 detik** (awal 97 detik, lihat D-015), teks terkirim lewat Bluetooth, Wi-Fi menyala → kembali ke LAN dalam 10 detik |

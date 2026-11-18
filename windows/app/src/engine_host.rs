@@ -188,6 +188,10 @@ impl Hub {
                             PeerState::Offline => "offline",
                         },
                         "addr": p.addr.map(|a| a.to_string()),
+                        "transport": p.transport.map(|t| match t {
+                            engine::peers::Transport::Lan => "lan",
+                            engine::peers::Transport::Bluetooth => "bluetooth",
+                        }),
                     })
                 })
                 .collect(),
