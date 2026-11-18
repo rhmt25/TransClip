@@ -22,8 +22,16 @@ import kotlinx.coroutines.launch
 import java.io.File
 import java.util.UUID
 
+/**
+ * Any app can fire a SEND intent at the exported share screen. Only `content:` URIs are read: a
+ * `file:` URI would let another app make us open our own private files (settings, secrets) and
+ * forward them to the paired devices.
+ */
+fun isSafeShareUri(uri: Uri): Boolean = uri.scheme == "content"
+
 /** A shared picture as a clipboard image, or null when it is not a supported image or is too large. */
 fun readImageClip(context: Context, uri: Uri, declaredType: String?): Clip.Image? = runCatching {
+    if (!isSafeShareUri(uri)) return null
     val mime = (context.contentResolver.getType(uri) ?: declaredType)?.lowercase()
     if (mime == null || mime !in IMAGE_MIMES) return null
     val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: return null
@@ -35,6 +43,7 @@ fun readImageClip(context: Context, uri: Uri, declaredType: String?): Clip.Image
 
 /** Copy a content URI into the cache so the engine can read it as a plain file. Null on failure. */
 fun copyToCache(context: Context, uri: Uri): File? = runCatching {
+    if (!isSafeShareUri(uri)) return null
     var name = uri.lastPathSegment?.substringAfterLast('/') ?: "file"
     context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use {
         if (it.moveToFirst()) name = it.getString(0) ?: name
@@ -92,7 +101,7 @@ class ShareReceiverActivity : Activity() {
 
     private fun dispatch(app: TransClipApp, appContext: Context, uris: List<Uri>, text: String?, type: String?, to: List<DeviceId>) {
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
-            val image = uris.singleOrNull()?.let { readImageClip(appContext, it, type) }
+            val image = uris.singleOrNull()?.takeIf { app.engine.allows(isText = false) }?.let { readImageClip(appContext, it, type) }
             val sentTo = when {
                 // One picture shared from the gallery or a screenshot: put it on the other devices' clipboard.
                 image != null -> if (app.engine.submit(image) != null) app.engine.onlineCount() else 0

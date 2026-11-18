@@ -90,7 +90,8 @@ class ClipCaptureActivity : Activity() {
         val item = data.getItemAt(0)
         val uri = item.uri
         val mime = (0 until description.mimeTypeCount).map { description.getMimeType(it) }.firstOrNull { it in IMAGE_MIMES }
-        if (uri != null && mime != null) {
+        // A copy can carry an image and text together; with images off the text must still go.
+        if (uri != null && mime != null && (application as TransClipApp).engine.allows(isText = false)) {
             return { ctx ->
                 runCatching {
                     ctx.contentResolver.openInputStream(uri)?.use { it.readBytes() }

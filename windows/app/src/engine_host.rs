@@ -120,6 +120,7 @@ impl Hub {
     fn store_config(&self, cfg: Config) -> Result<(), String> {
         cfg.save(&self.paths.config_file())
             .map_err(|e| e.to_string())?;
+        crate::clipboard::set_allowed(cfg.sync_text, cfg.sync_images);
         *self.config.lock().unwrap_or_else(PoisonError::into_inner) = cfg;
         Ok(())
     }
@@ -706,6 +707,7 @@ pub async fn run(input: HostInput, ui: UiHandle, mut commands: mpsc::UnboundedRe
         device_id,
         commands: command_tx,
     } = input;
+    crate::clipboard::set_allowed(config.sync_text, config.sync_images);
     let hub = Arc::new(Hub {
         ui: ui.clone(),
         status: Mutex::new(Status {

@@ -261,6 +261,9 @@ class EngineHost(private val context: Context) {
         beacon?.announceNow()
     }
 
+    /** Whether the sync toggle for this kind (text or image) is on. */
+    fun allows(isText: Boolean): Boolean = if (isText) allowText else allowImages
+
     /** Share a clipboard item with all peers. Returns null when the engine is not running. */
     suspend fun submit(clip: Clip): Submitted? {
         if (AppState.paused.value) return null

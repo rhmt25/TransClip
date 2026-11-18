@@ -34,6 +34,9 @@ impl ClipboardSink for WindowsSink {
         if self.paused.load(std::sync::atomic::Ordering::Relaxed) {
             return Err("paused".into());
         }
+        if !super::is_allowed(matches!(&item.clip, Clip::Text(_))) {
+            return Err("sync of this kind is off".into());
+        }
         let owner = HWND(self.hwnd as *mut std::ffi::c_void);
         // Convert before taking the clipboard so it is held as briefly as possible.
         let payload = match &item.clip {

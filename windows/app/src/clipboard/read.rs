@@ -39,8 +39,15 @@ pub fn text_from_wide_bytes(bytes: &[u8]) -> String {
     String::from_utf16_lossy(&units)
 }
 
-/// Read the current clipboard content.
+/// Read the current clipboard content (both kinds allowed).
+#[cfg(test)]
 pub fn read() -> Read {
+    read_filtered(true, true)
+}
+
+/// Read the clipboard, only looking at the kinds that are allowed. A copy from a browser or
+/// Office carries an image and text together; with images off the text must still be sent.
+pub fn read_filtered(allow_text: bool, allow_images: bool) -> Read {
     let f = formats::formats();
     // Cheap checks first, without opening the clipboard.
     if available(f.origin) {
@@ -49,8 +56,8 @@ pub fn read() -> Read {
     if available(f.exclude) || available(f.viewer_ignore) {
         return Read::Skip("marked as sensitive");
     }
-    let has_image = available(f.png) || available(CF_DIBV5) || available(CF_DIB);
-    let has_text = available(CF_UNICODETEXT);
+    let has_image = allow_images && (available(f.png) || available(CF_DIBV5) || available(CF_DIB));
+    let has_text = allow_text && available(CF_UNICODETEXT);
     if !has_image && !has_text {
         return Read::Nothing;
     }
