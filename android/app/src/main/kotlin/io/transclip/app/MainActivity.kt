@@ -207,6 +207,14 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+        val askBluetooth = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (granted) {
+                scope.launch {
+                    app.engine.stop()
+                    app.engine.start()
+                }
+            }
+        }
         val askNotifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
             SyncService.start(this)
         }
@@ -259,7 +267,32 @@ class MainActivity : ComponentActivity() {
                 items(peers) { p ->
                     Column(Modifier.fillMaxWidth()) {
                         Text(p.name.ifEmpty { p.id.toHex().take(8) })
-                        Text(p.state.name.lowercase(), style = MaterialTheme.typography.bodySmall)
+                        val via = when (p.transport) {
+                            io.transclip.engine.Transport.BLUETOOTH -> " · Bluetooth"
+                            io.transclip.engine.Transport.LAN -> " · Wi-Fi"
+                            null -> ""
+                        }
+                        Text(p.state.name.lowercase() + via, style = MaterialTheme.typography.bodySmall)
+                        val prio by settingsRepo.flow.collectAsStateWithLifecycle(initialValue = null)
+                        prio?.let { c ->
+                            SettingSwitch(getString(R.string.bt_priority), p.id.toHex() in c.btPriority) { on ->
+                                val needsPermission = on && android.os.Build.VERSION.SDK_INT >= 31 &&
+                                    checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) !=
+                                    android.content.pm.PackageManager.PERMISSION_GRANTED
+                                if (needsPermission) {
+                                    message = getString(R.string.bt_permission_needed)
+                                    askBluetooth.launch(android.Manifest.permission.BLUETOOTH_CONNECT)
+                                } else {
+                                    scope.launch {
+                                        settingsRepo.update {
+                                            it.copy(btPriority = if (on) it.btPriority + p.id.toHex() else it.btPriority - p.id.toHex())
+                                        }
+                                        app.engine.stop()
+                                        app.engine.start()
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }

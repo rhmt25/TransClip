@@ -366,18 +366,18 @@ Baca `CLAUDE.md` dulu. Spesifikasi: `docs/PLAN.md` (arsitektur) dan `docs/PROTOC
 
 > Bila P0-10 memutuskan BT ditunda ke v1.1, tandai seluruh P6 `[x] (ditunda)` dan lanjut ke P7.
 
-### [ ] P6-01 · Windows: transport RFCOMM
+### [~] P6-01 · Windows: transport RFCOMM
 * **Dep:** P0-09, P2-03
 * **File:** `app/src/bluetooth/{server.rs,client.rs,sdp.rs,devices.rs}`
 * **Lakukan:** API hasil S4; server terdaftar dengan UUID PROTOCOL §2; klien ke perangkat paired; daftar perangkat paired OS (nama + alamat) untuk UI; bungkus socket sebagai `AsyncRead+AsyncWrite` (thread blocking + channel bila perlu).
 * **Selesai jika:** **[MANUAL]** handshake + hello sukses melalui BT dengan HP (Wi-Fi HP dimatikan).
 
-### [ ] P6-02 · Android: transport RFCOMM
+### [~] P6-02 · Android: transport RFCOMM
 * **Dep:** P0-09, P3-02
 * **File:** `net/RfcommServer.kt`, `net/RfcommDialer.kt`
 * **Selesai jika:** **[MANUAL]** Android ↔ Windows dan Android ↔ Android terhubung via BT.
 
-### [ ] P6-03 · Mode Priority/Lazy & failover (kedua engine)
+### [~] P6-03 · Mode Priority/Lazy & failover (kedua engine)
 * **Dep:** P6-01, P6-02
 * **Lakukan:** PLAN §4.2 lengkap (10 s, 60 s, maks 3 link BT, prioritas per peer), multiplexing chunk 8 KiB di link BT, `announce`/`pull` untuk gambar besar, notifikasi "Gambar tersedia".
 * **Selesai jika:** test engine dengan transport palsu (LAN & BT disimulasikan) untuk failover dan pemulihan tanpa duplikasi; **[MANUAL]** matikan Wi-Fi di tengah sesi → teks tetap tersinkron via BT dalam < 15 s; nyalakan lagi → kembali ke LAN, link BT ditutup setelah 60 s.

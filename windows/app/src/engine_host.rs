@@ -329,6 +329,15 @@ fn handler(hub: Arc<Hub>) -> Handler {
                         serde_json::from_value(merged).map_err(|e| e.to_string())?;
                     cfg.validate();
                     hub.store_config(cfg.clone())?;
+                    let live = hub
+                        .live_mgr
+                        .lock()
+                        .unwrap_or_else(PoisonError::into_inner)
+                        .clone();
+                    if let Some(m) = live {
+                        m.set_bt_priority(bt_priority_set(&cfg.bt_priority_peers))
+                            .await;
+                    }
                     hub.ui.send(ToUi::RadialConfig {
                         trigger: cfg.radial_trigger.clone(),
                         radius: cfg.radial_radius_px,
@@ -422,6 +431,7 @@ struct Running {
     sync: ClipboardSync,
     beacon: BeaconService,
     _mdns: Option<MdnsService>,
+    _bt: Option<crate::bluetooth::RfcommServer>,
 }
 
 impl Running {
@@ -454,19 +464,42 @@ async fn start_engine(
         role: "full".into(),
     };
     let listen = std::net::SocketAddr::from(([0, 0, 0, 0], config.port));
-    let (mgr, mut events) =
-        match PeerManager::start(ManagerConfig::new(local, gk, listen), seen_rx).await {
-            Ok(x) => x,
-            Err(e) => {
-                tracing::error!(error = %e, "cannot listen on the TCP port");
-                hub.update(|s| s.error = true);
-                ui.send(ToUi::Notify {
-                    title: strings::APP_NAME.into(),
-                    text: format!("Port {} tidak dapat dipakai", config.port),
-                });
-                return None;
-            }
-        };
+    let mut manager_cfg = ManagerConfig::new(local, gk, listen);
+    let bt_ok = crate::bluetooth::available();
+    if bt_ok {
+        manager_cfg.bt = Some(Arc::new(crate::bluetooth::WinBtDialer::new(
+            tokio::runtime::Handle::current(),
+        )));
+    }
+    let (mgr, mut events) = match PeerManager::start(manager_cfg, seen_rx).await {
+        Ok(x) => x,
+        Err(e) => {
+            tracing::error!(error = %e, "cannot listen on the TCP port");
+            hub.update(|s| s.error = true);
+            ui.send(ToUi::Notify {
+                title: strings::APP_NAME.into(),
+                text: format!("Port {} tidak dapat dipakai", config.port),
+            });
+            return None;
+        }
+    };
+    let mgr = Arc::new(mgr);
+    let bt_server = if bt_ok {
+        let m = Arc::clone(&mgr);
+        let handle = tokio::runtime::Handle::current();
+        // WinRT calls block, so the service is registered off the async workers.
+        tokio::task::spawn_blocking(move || crate::bluetooth::RfcommServer::start(m, handle))
+            .await
+            .ok()
+            .and_then(|r| {
+                r.map_err(|e| tracing::info!(error = %e, "bluetooth is not available"))
+                    .ok()
+            })
+    } else {
+        None
+    };
+    mgr.set_bt_priority(bt_priority_set(&config.bt_priority_peers))
+        .await;
     let beacon = match BeaconService::start(
         BeaconConfig::lan(
             gid,
@@ -500,7 +533,6 @@ async fn start_engine(
     }
     hub.update(|s| s.error = false);
 
-    let mgr = Arc::new(mgr);
     *hub.peers.lock().unwrap_or_else(PoisonError::into_inner) = Some(mgr.status());
     let mut watch = mgr.status();
     let hub2 = Arc::clone(hub);
@@ -623,7 +655,14 @@ async fn start_engine(
         sync,
         beacon,
         _mdns: mdns.ok(),
+        _bt: bt_server,
     })
+}
+
+fn bt_priority_set(ids: &[String]) -> std::collections::HashSet<DeviceId> {
+    ids.iter()
+        .filter_map(|h| DeviceId::from_hex(h).ok())
+        .collect()
 }
 
 /// Run until `ToEngine::Quit`.

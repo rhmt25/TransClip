@@ -66,3 +66,11 @@ HP: *Scan QR* (izinkan kamera) → arahkan ke QR di jendela Settings PC (tab Pai
 2. Lepas file di segmen perangkat → tiba di HP. Segmen "Semua" → ke semua perangkat online. Lepas di tengah lingkaran atau tekan **Esc** → batal.
 3. Ulangi dengan banyak file (20) dan satu folder bertingkat. Uji juga di monitor kedua dengan skala DPI berbeda.
 4. Drag dari aplikasi yang dijalankan sebagai Administrator tidak didukung (UIPI); pastikan tidak crash.
+
+## T10 — Bluetooth cadangan (P6-01..03, M10)
+Prasyarat: **pair PC dan HP di pengaturan Bluetooth masing-masing** (Windows: Settings → Bluetooth & devices → Add device; Android: Bluetooth → Pasangkan). Daemon PC mencatat `bluetooth service advertised` bila layanan RFCOMM terdaftar.
+1. PC: Settings → tab *Perangkat* → centang **Bluetooth bila Wi-Fi putus** untuk HP. HP: layar utama → saklar **Bluetooth bila Wi-Fi putus** pada PC (izinkan Bluetooth bila diminta).
+2. Pastikan tersambung lewat Wi-Fi (HP menampilkan "· Wi-Fi"). Matikan Wi-Fi HP.
+3. Dalam ≈ 15 detik status berubah menjadi "· Bluetooth"; salin teks di PC → muncul di HP.
+4. Nyalakan Wi-Fi lagi → kembali ke "· Wi-Fi"; link Bluetooth ditutup setelah 60 detik tanpa teks hilang.
+Catatan: gambar besar (> 2 MiB) lewat Bluetooth belum memakai `announce`/`pull`; gambar dikirim langsung.

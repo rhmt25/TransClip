@@ -2,6 +2,7 @@
 #![cfg_attr(not(test), windows_subsystem = "windows")]
 
 mod autostart;
+mod bluetooth;
 mod bridge;
 mod cli;
 mod clipboard;

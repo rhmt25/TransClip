@@ -308,7 +308,8 @@ impl SettingsApp {
         if self.peers.is_empty() {
             ui.label("Belum ada perangkat lain.");
         }
-        for (name, state) in &self.peers {
+        let mut priority = self.config.bt_priority_peers.clone();
+        for (i, (name, state)) in self.peers.clone().iter().enumerate() {
             ui.horizontal(|ui| {
                 let color = if state == "online" {
                     egui::Color32::from_rgb(40, 160, 70)
@@ -322,8 +323,22 @@ impl SettingsApp {
                     "connecting" => "menghubungkan",
                     _ => "offline",
                 });
+                if let Some(id) = self.peer_ids.get(i) {
+                    let mut on = priority.contains(id);
+                    if ui.checkbox(&mut on, "Bluetooth bila Wi-Fi putus").changed() {
+                        if on {
+                            priority.push(id.clone());
+                        } else {
+                            priority.retain(|p| p != id);
+                        }
+                    }
+                }
             });
         }
+        if priority != self.config.bt_priority_peers {
+            self.set_config(json!({ "bt_priority_peers": priority }));
+        }
+        ui.weak("Bluetooth hanya dipakai bila perangkat sudah di-pair di Windows dan Wi-Fi putus lebih dari 10 detik.");
     }
 
     fn ui_pairing(&mut self, ui: &mut egui::Ui) {

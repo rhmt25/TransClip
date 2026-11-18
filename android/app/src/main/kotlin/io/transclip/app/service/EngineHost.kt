@@ -56,6 +56,7 @@ class EngineHost(private val context: Context) {
     private var beacon: BeaconService? = null
     private var nsd: NsdDiscovery? = null
     private var lock: WifiManager.MulticastLock? = null
+    private var rfcomm: io.transclip.app.net.RfcommServer? = null
     private var screenshots: io.transclip.app.clip.ScreenshotWatcher? = null
     private var allowText = true
     private var allowImages = true
@@ -87,12 +88,18 @@ class EngineHost(private val context: Context) {
                 local = LocalInfo(me, cfg.deviceName, "android", "transclip/1.0.0", listOf("clip"), "full"),
                 gk = gk,
                 listenPort = TCP_PORT,
+                bt = if (io.transclip.app.net.bluetoothReady(context)) io.transclip.app.net.RfcommDialer(context) else null,
             ),
             s,
             seen,
         )
         manager.start()
         mgr = manager
+        if (io.transclip.app.net.bluetoothReady(context)) {
+            // Paired devices can reach us over Bluetooth; priority peers are dialed when the LAN is down.
+            rfcomm = io.transclip.app.net.RfcommServer(context, manager, s).also { it.start() }
+            manager.setBtPriority(cfg.btPriority.mapNotNull { runCatching { DeviceId.fromHex(it) }.getOrNull() }.toSet())
+        }
 
         val gid = gk.groupId()
         beacon = BeaconService(
@@ -227,6 +234,8 @@ class EngineHost(private val context: Context) {
     suspend fun stop() {
         screenshots?.stop()
         screenshots = null
+        rfcomm?.stop()
+        rfcomm = null
         beacon?.stop()
         nsd?.stop()
         mgr?.stop()

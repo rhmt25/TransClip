@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -25,6 +26,8 @@ data class Settings(
     val autoCapture: Boolean = false,
     /** Send new screenshots to the other devices as clipboard images. */
     val autoScreenshots: Boolean = false,
+    /** Device ids (hex) that should get a Bluetooth link when the LAN is down. */
+    val btPriority: Set<String> = emptySet(),
     /** SAF tree URI of the receive folder; empty means `Download/TransClip`. */
     val downloadTreeUri: String = "",
     val onboardingDone: Boolean = false,
@@ -55,6 +58,7 @@ class SettingsRepo(private val store: DataStore<Preferences>) {
             autoStart = p[AUTO_START] ?: true,
             autoCapture = p[AUTO_CAPTURE] ?: false,
             autoScreenshots = p[AUTO_SCREENSHOTS] ?: false,
+            btPriority = p[BT_PRIORITY] ?: emptySet(),
             downloadTreeUri = p[DOWNLOAD_URI].orEmpty(),
             onboardingDone = p[ONBOARDING] ?: false,
         )
@@ -73,6 +77,7 @@ class SettingsRepo(private val store: DataStore<Preferences>) {
             p[AUTO_START] = next.autoStart
             p[AUTO_CAPTURE] = next.autoCapture
             p[AUTO_SCREENSHOTS] = next.autoScreenshots
+            p[BT_PRIORITY] = next.btPriority
             p[DOWNLOAD_URI] = next.downloadTreeUri
             p[ONBOARDING] = next.onboardingDone
         }
@@ -87,6 +92,7 @@ class SettingsRepo(private val store: DataStore<Preferences>) {
         val AUTO_START = booleanPreferencesKey("auto_start")
         val AUTO_CAPTURE = booleanPreferencesKey("auto_capture")
         val AUTO_SCREENSHOTS = booleanPreferencesKey("auto_screenshots")
+        val BT_PRIORITY = stringSetPreferencesKey("bt_priority")
         val DOWNLOAD_URI = stringPreferencesKey("download_tree_uri")
         val ONBOARDING = booleanPreferencesKey("onboarding_done")
     }
