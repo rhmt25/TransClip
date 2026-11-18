@@ -2,7 +2,7 @@
 
 Pengukuran awal pada mesin pengembang (Windows 11, build debug kecuali dicatat). Pengukuran lengkap pada build release dan perangkat nyata dikerjakan di uji penerimaan (P8-05).
 
-| Metrik | Hasil | Target PLAN §10 | Catatan |
+| Metrik | Hasil | Target | Catatan |
 |---|---|---|---|
 | RAM daemon idle (Windows, debug) | ~26 MB | kecil | Settings egui berjalan di proses terpisah (~105 MB), tertutup saat jendela ditutup |
 | Transfer 24 MiB + resume | lulus, hash cocok | n/a | test `engine` |

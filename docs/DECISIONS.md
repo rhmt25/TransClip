@@ -19,11 +19,11 @@ Format: `D-<nomor> · <tanggal> · <judul>` → Keputusan, Alasan, Alternatif ya
 ### D-004 · 2026-11-18 · Framing: header JSON berprefiks panjang
 * **Keputusan:** format frame Clipdeck (u32 panjang + JSON + payload), diperluas dengan batas per tipe dan pesan baru.
 * **Alasan:** mudah diperluas (tipe tak dikenal diabaikan), mudah di-debug, terbukti di Clipdeck.
-* **Ditolak:** header biner tetap `CLIP + tipe + UUID + panjang` dari blueprint awal (tanpa versi, sulit diperluas).
+* **Ditolak:** header biner tetap `CLIP + tipe + UUID + panjang` dari rancangan awal (tanpa versi, sulit diperluas).
 
 ### D-005 · 2026-11-18 · Kriptografi
 * **Keputusan:** handshake X25519 ephemeral + Group Key (PSK) → HKDF-SHA256 → ChaCha20-Poly1305 per record (PROTOCOL §6–7). RustCrypto di Windows, BouncyCastle di Android.
-* **Alasan:** kerahasiaan + forward secrecy di LAN; HMAC saja (blueprint awal) tidak mengenkripsi.
+* **Alasan:** kerahasiaan + forward secrecy di LAN; HMAC saja tidak mengenkripsi.
 * **Ditolak:** Noise via library (library Java tidak terawat); TLS (butuh manajemen sertifikat).
 
 ### D-006 · 2026-11-18 · Settings Windows sebagai proses terpisah (egui)
@@ -40,7 +40,7 @@ Format: `D-<nomor> · <tanggal> · <judul>` → Keputusan, Alasan, Alternatif ya
 ### D-009 · 2026-11-18 · Folder tujuan file dapat diubah di kedua platform
 * **Keputusan:** default `Downloads\TransClip` (Windows, via `FOLDERID_Downloads`) dan `Download/TransClip` (Android, via `MediaStore`). Pengguna dapat memilih folder lain: Windows lewat dialog folder native (crate `rfd`), Android lewat SAF dengan izin persisten. Bila folder kustom tidak tersedia saat transfer, fallback ke default + notifikasi.
 * **Alasan:** permintaan pengguna. Fallback mencegah file hilang saat drive/izin berubah.
-* **Detail:** PLAN §4.5, TODO P5-09.
+* **Detail:** ARCHITECTURE (folder tujuan transfer).
 
 ### D-010 · 2026-11-18 · `file_offer.bytes` menggantikan `file_offer.size`
 * **Keputusan:** ukuran file di `file_offer` bernama `bytes`. Field `size` di header frame hanya berarti panjang payload.
@@ -51,7 +51,7 @@ Format: `D-<nomor> · <tanggal> · <judul>` → Keputusan, Alasan, Alternatif ya
 * **Alasan:** semua pembaca/penulis di engine hanya berbicara dalam frame; poll-state-machine manual rawan bug dan tidak memberi manfaat. Byte stream plaintext tetap kontinu lintas record seperti di PROTOCOL §7.
 
 ### D-012 · 2026-11-18 · Engine Kotlin sebagai modul JVM `:engine`
-* **Konteks:** PLAN §6.1 menaruh paket `engine` di dalam `:app`. Logika `Link`, `PeerManager`, `ClipboardSync` tidak butuh Android SDK, dan di `:app` uji JVM-nya lebih lambat serta ikut terikat plugin Android.
+* **Konteks:** Rancangan awal menaruh paket `engine` di dalam `:app`. Logika `Link`, `PeerManager`, `ClipboardSync` tidak butuh Android SDK, dan di `:app` uji JVM-nya lebih lambat serta ikut terikat plugin Android.
 * **Keputusan:** buat modul JVM murni `:engine` (paket `io.transclip.engine`) di antara `:proto` dan `:app`, mencerminkan `proto`/`engine` di sisi Rust. Kode khusus Android (NSD, Keystore, service, UI) tetap di `:app`.
 * **Dampak:** uji engine berjalan dengan `./gradlew :engine:test` tanpa emulator; `:app` bergantung pada `:engine`.
 
@@ -62,7 +62,7 @@ Format: `D-<nomor> · <tanggal> · <judul>` → Keputusan, Alasan, Alternatif ya
 * **Dampak:** PROTOCOL §9.3 diperbarui; kedua engine memakai jalur yang sama untuk LAN dan BT. Throughput satu koneksi TCP sudah memadai untuk LAN rumah.
 
 ## D-014 — Pemicu menu radial lewat polling, bukan hook global (2026-11-18)
-PLAN §5.4 menyebut `WH_MOUSE_LL`/`WH_KEYBOARD_LL`. Diganti dengan timer 40 ms di thread UI yang membaca `GetAsyncKeyState` (tombol kiri mouse, tombol pemicu, Esc) dan posisi kursor. Efek aktivasi sama (tahan klik kiri + geser > `SM_CXDRAG` + tombol pemicu), tetapi tidak ada hook yang bisa memperlambat input seluruh desktop atau dilepas Windows bila lambat. Overlay, `IDropTarget`, dan geometri sesuai PLAN. Sub-ring "Lainnya…" tidak dibuat: grup maksimal 10 perangkat, jadi paling banyak 9 peer + "Semua".
+Rancangan awal menyebut `WH_MOUSE_LL`/`WH_KEYBOARD_LL`. Diganti dengan timer 40 ms di thread UI yang membaca `GetAsyncKeyState` (tombol kiri mouse, tombol pemicu, Esc) dan posisi kursor. Efek aktivasi sama (tahan klik kiri + geser > `SM_CXDRAG` + tombol pemicu), tetapi tidak ada hook yang bisa memperlambat input seluruh desktop atau dilepas Windows bila lambat. Overlay, `IDropTarget`, dan geometri sesuai rancangan awal. Sub-ring "Lainnya…" tidak dibuat: grup maksimal 10 perangkat, jadi paling banyak 9 peer + "Semua".
 
 ## D-015 — Failover Bluetooth lebih cepat (2026-11-18)
 Uji nyata (PC + POCO F4, Wi-Fi HP dimatikan) memakan 97 detik sebelum Bluetooth aktif. Perbaikan: TCP keep-alive 4 s + 1 s pada semua socket LAN (peer yang hilang terdeteksi ±15 s, bukan menunggu time-out link 90 s); Bluetooth dibuka setelah LAN mati > **5 s** (sebelumnya 10 s); percobaan ulang setelah 3 s; perangkat Bluetooth yang berhasil terakhir dicoba lebih dulu. Hasil: 13 detik, dengan teks terkirim lewat Bluetooth, dan kembali ke LAN dalam 10 detik setelah Wi-Fi menyala.

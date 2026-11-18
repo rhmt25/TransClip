@@ -153,7 +153,7 @@ Setelah `hs3` diterima/dikirim, semua byte stream dibungkus record:
 
 ## 8. Frame
 
-Diadopsi dari protokol Clipdeck, diperluas.
+Format frame header JSON berprefiks panjang, diperluas dengan batas per tipe.
 
 | Ukuran | Isi |
 |---|---|
@@ -199,7 +199,7 @@ Aturan:
 * Penerima WAJIB membalas `ack` setelah item ditulis ke clipboard (atau gagal, `ok:false`).
 * Penerima WAJIB mengabaikan (tetapi tetap `ack ok:true`) item yang `id`-nya sudah pernah dilihat (cache LRU 1024 id / 10 menit), dan item yang `hash`-nya sama dengan isi clipboard saat ini.
 * **Konflik:** item diterapkan hanya jika `ts` > `ts` item clipboard terakhir yang diterapkan; jika `ts` sama, menang `origin` yang lebih kecil.
-* `announce` dipakai bila item terlalu besar untuk transport saat ini (lihat PLAN §Transport). Penerima mengirim `pull {id}` untuk mendapatkan frame `image` lengkap. Pengirim menyimpan item yang di-announce minimal **10 menit**; `pull` untuk id yang sudah hilang dijawab `error {code:"gone", ref:id}`.
+* `announce` dipakai bila item terlalu besar untuk transport saat ini (lihat `docs/ARCHITECTURE.md`, pemilihan transport). Penerima mengirim `pull {id}` untuk mendapatkan frame `image` lengkap. Pengirim menyimpan item yang di-announce minimal **10 menit**; `pull` untuk id yang sudah hilang dijawab `error {code:"gone", ref:id}`.
 * Tidak ada relay: penerima **TIDAK BOLEH** meneruskan item ke peer lain.
 
 ### 9.3 Transfer file
@@ -216,7 +216,7 @@ Pengirim                            Penerima
                               ◄───   file_result {xfer_id, ok, reason}
 ```
 
-Semua frame dikirim di **koneksi kontrol** yang sama. Pengirim menaruh `file_stream`/`file_chunk`/`file_end` di antrean data berprioritas rendah; frame kontrol (clipboard, ack, offer, result, cancel) menyela di antara chunk (PROTOCOL §7 dan PLAN §4). Tidak ada koneksi TCP kedua (lihat D-013). Batas chunk: 64 KiB (LAN), 8 KiB (BT).
+Semua frame dikirim di **koneksi kontrol** yang sama. Pengirim menaruh `file_stream`/`file_chunk`/`file_end` di antrean data berprioritas rendah; frame kontrol (clipboard, ack, offer, result, cancel) menyela di antara chunk (PROTOCOL §7). Tidak ada koneksi TCP kedua (lihat D-013). Batas chunk: 64 KiB (LAN), 8 KiB (BT).
 
 `batch_name` kosong berarti file lepas: entri ditulis langsung di akar folder tujuan. `batch_name` tidak kosong (satu segmen yang lolos validasi path) berarti folder: penerima membuat `<tujuan>/<batch_name>/` (diberi ` (n)` bila sudah ada) dan menulis semua entri batch di dalamnya.
 

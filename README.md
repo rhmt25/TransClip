@@ -1,5 +1,9 @@
 # TransClip
 
+[![License: GPL v3+](https://img.shields.io/badge/license-GPL--3.0--or--later-blue.svg)](LICENSE)
+
+*English: free and open-source clipboard (text and images) and file/folder sync between Windows 11 and Android over LAN with Bluetooth fallback, end-to-end encrypted, no server and no account.*
+
 Sinkronisasi clipboard (teks dan gambar) dan transfer file/folder antara **Windows 11** dan **Android** lewat jaringan lokal, terenkripsi end-to-end. Satu `.exe` untuk Windows, satu `.apk` untuk Android. Tanpa server, tanpa akun.
 
 ## Fitur
@@ -41,4 +45,35 @@ Sinkronisasi clipboard (teks dan gambar) dan transfer file/folder antara **Windo
 - Bluetooth hanya dipakai bila PC dan HP sudah di-pair di pengaturan Bluetooth masing-masing dan opsi *Bluetooth bila Wi-Fi putus* dicentang.
 - Sinkron otomatis di Android memerlukan layanan Aksesibilitas TransClip (hanya mendengarkan perubahan clipboard, tidak membaca layar); layar transparan berkedip sebentar saat menyalin. Setelah memasang ulang APK, matikan lalu nyalakan layanannya.
 
-Masalah koneksi: lihat `docs/troubleshooting.md`. Spesifikasi: `docs/PLAN.md` dan `docs/PROTOCOL.md`.
+Masalah koneksi: lihat `docs/troubleshooting.md`.
+
+## Membangun dari sumber
+Prasyarat: Rust stable (target `x86_64-pc-windows-msvc`) dengan Visual Studio Build Tools, serta JDK 17+ dan Android SDK (platform 35) untuk Android.
+
+```powershell
+# Windows (dari folder windows/)
+cargo build --release -p transclip
+
+# Android (dari folder android/)
+.\gradlew.bat :app:assembleDebug
+
+# Keduanya + test, hasil di dist/
+.\scriptsuild-release.ps1
+```
+
+Rilis bertanda tangan: lihat `docs/release.md`.
+
+## Dokumentasi
+| Dokumen | Isi |
+|---|---|
+| `docs/ARCHITECTURE.md` | Struktur kode dan komponen |
+| `docs/PROTOCOL.md` | Spesifikasi protokol kabel dan kripto (normatif) |
+| `docs/DECISIONS.md` | Log keputusan desain |
+| `docs/design-system.md`, `docs/design/` | Pedoman dan token desain UI |
+| `docs/security-review.md` | Tinjauan keamanan mandiri |
+| `docs/manual-tests.md` | Skenario uji di perangkat asli |
+| `CONTRIBUTING.md` | Cara berkontribusi |
+| `SECURITY.md` | Melaporkan celah keamanan |
+
+## Lisensi
+TransClip adalah perangkat lunak bebas di bawah **GNU General Public License v3.0 atau yang lebih baru** (`GPL-3.0-or-later`); lihat [LICENSE](LICENSE). Program ini dibagikan dengan harapan berguna, tanpa jaminan apa pun.

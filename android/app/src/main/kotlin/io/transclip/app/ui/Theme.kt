@@ -35,7 +35,7 @@ enum class ThemeMode(val key: String) {
     }
 }
 
-/** Colour tokens of pedoman_desain/Pedoman.md that Material 3 has no slot for. */
+/** Colour tokens of docs/design/guidelines.md that Material 3 has no slot for. */
 @Immutable
 class Tokens(
     val canvas: Color,
@@ -129,7 +129,7 @@ private val AppTypography = Typography(
     labelMedium = TextStyle(fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.Medium),
 )
 
-/** 6 dp for controls, 8 dp for containers (pedoman_desain). */
+/** 6 dp for controls, 8 dp for containers (docs/design/guidelines.md). */
 private val AppShapes = Shapes(
     extraSmall = RoundedCornerShape(6.dp),
     small = RoundedCornerShape(6.dp),

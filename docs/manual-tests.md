@@ -27,7 +27,7 @@ Isi kolom Hasil dan Tanggal setelah dijalankan di perangkat asli.
 
 ## Catatan uji otomatis lewat adb (2026-11-18, HP 22021211RG / Android 14 ↔ PC Windows 11, satu Wi-Fi)
 
-Dijalankan oleh agen, bukan pengganti uji pengguna; tanda `[x]` di TODO tetap menunggu konfirmasi pengguna.
+Uji semi-otomatis lewat adb; bukan pengganti uji manual di perangkat.
 
 * Pairing lewat tautan `transclip://pair?...` (membuat grup di PC lewat IPC, mengisi kode di HP, menekan *Gabung*): kedua sisi terhubung, `list_peers` di PC menampilkan HP `online`.
 * M01 (sebagian): teks PC → HP diterapkan (`Applied`) dalam < 1 s. Isi clipboard HP belum dibaca balik.

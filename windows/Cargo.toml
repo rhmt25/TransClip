@@ -6,6 +6,7 @@ members = ["crates/proto", "crates/engine", "crates/tvgen", "app"]
 version = "1.0.0"
 edition = "2021"
 publish = false
+license = "GPL-3.0-or-later"
 
 [workspace.lints.clippy]
 unwrap_used = "warn"

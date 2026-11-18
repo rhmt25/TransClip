@@ -1,4 +1,4 @@
-//! Design tokens and small widgets for the settings window (pedoman_desain/Pedoman.md).
+//! Design tokens and small widgets for the settings window (docs/design/guidelines.md).
 //!
 //! Soft off-white / charcoal canvases instead of pure white and black, one sky-blue accent,
 //! 1 px separators for structure, 6 px radius on controls and 8 px on containers.
@@ -32,7 +32,7 @@ const fn rgb(r: u8, g: u8, b: u8) -> Color32 {
     Color32::from_rgb(r, g, b)
 }
 
-/// Tokens from pedoman_desain.
+/// Tokens from docs/design/guidelines.md.
 pub const fn palette(dark: bool) -> Palette {
     if dark {
         Palette {
@@ -604,7 +604,7 @@ mod tests {
                 assert_ne!(c, Color32::WHITE);
             }
         }
-        // Pure white is allowed only as the card surface of the light theme (pedoman_desain).
+        // Pure white is allowed only as the card surface of the light theme (docs/design/guidelines.md).
         assert_ne!(palette(true).surface, Color32::WHITE);
     }
 

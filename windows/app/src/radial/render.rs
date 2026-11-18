@@ -1,5 +1,5 @@
 //! Software rendering of the radial menu into a premultiplied BGRA bitmap (PLAN section 5.4,
-//! pedoman_desain). Segments are separate rounded wedges with a gap between them, around a
+//! docs/design/guidelines.md). Segments are separate rounded wedges with a gap between them, around a
 //! centre disc that is the cancel drop zone. Pixels inside a shape have alpha >= 1, so they
 //! receive the drop; everything else is transparent.
 
@@ -45,7 +45,7 @@ impl Layout {
 
 type Rgba = (u8, u8, u8, u8);
 
-/// Colours from pedoman_desain: soft charcoal glass with a sky-blue edge and highlight.
+/// Colours from docs/design/guidelines.md: soft charcoal glass with a sky-blue edge and highlight.
 pub const FILL: Rgba = (18, 21, 26, 224);
 pub const CENTRE: Rgba = (26, 30, 38, 235);
 pub const EDGE: Rgba = (56, 189, 248, 96);

@@ -51,4 +51,4 @@ Aplikasi wajib mendukung **Light Mode** dan **Dark Mode** dengan **tombol pengub
 * **Radial Drop Menu (Khusus Windows Overlay):**
   * Gunakan latar semi-transparan gelap lembut (`rgba(18, 21, 26, 0.88)`) dengan tepian `1px solid rgba(56, 189, 248, 0.3)` dan efek *highlight* biru muda (`#38BDF8`) saat kursor mengarah ke segmen perangkat.
 
-Untuk radial desain bentuknya ikuti di filee seperti pada gambar E:\Projek\TransClip\pedoman_desain\bentuk radial desain.jpg namun untuk warnanya sesuaikan tema namun khusus radial ini tetap ada efek transparannya seperti di filee
+Untuk radial desain bentuknya ikuti gambar `radial-shape.jpg` di folder ini, namun untuk warnanya sesuaikan tema namun khusus radial ini tetap ada efek transparannya seperti di filee

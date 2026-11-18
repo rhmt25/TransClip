@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: windows
+      - run: cargo fmt --all -- --check
+        working-directory: windows
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+        working-directory: windows
+      - run: cargo test --workspace
+        working-directory: windows
+      - run: cargo run -p tvgen
+        working-directory: windows
+      - name: Test vectors unchanged
+        run: git diff --exit-code docs/test-vectors
+
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+      - run: ./gradlew :proto:test :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
+        working-directory: android

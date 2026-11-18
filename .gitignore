@@ -1,15 +1,33 @@
-﻿Clipdeck/
-graphify-out/
+# Build output
 windows/target/
 android/.gradle/
+android/.kotlin/
 android/build/
 android/**/build/
+dist/
+
+# Local configuration and secrets
 android/local.properties
 android/keystore.properties
 *.jks
 *.keystore
+.env
+
+# IDE / OS
 .idea/
+.vscode/
 *.iml
 .DS_Store
 Thumbs.db
-dist/
+desktop.ini
+
+# Logs, backups, scratch
+*.log
+*.bak
+*.orig
+*.tmp
+*.swp
+
+# Tooling output
+graphify-out/
+.claude/

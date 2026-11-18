@@ -15,6 +15,6 @@ Tanggal: 2026-11-18. Dikerjakan oleh pengembang (bukan audit pihak ketiga). Stat
 | 9 | Rate limit | OK | 20 item clipboard / 10 detik per perangkat; 3 batch paralel; `max_incoming_file_bytes`; cek ruang disk |
 | 10 | Rotasi kunci mencabut perangkat | OK | Test engine: perangkat yang dicabut gagal handshake dengan kunci baru |
 | 11 | Dependency audit | OK (Rust) | `cargo audit` 2026-11-18: 335 crate, 0 kerentanan. Dependensi Android belum diaudit (butuh OWASP dependency-check) |
-| 12 | Anggota grup tepercaya penuh | CATATAN (diterima) | Satu Group Key bersama: setiap anggota dapat memulai rotasi kunci atau mengirim clipboard. Sesuai D-keputusan model ancaman (PLAN §7) |
+| 12 | Anggota grup tepercaya penuh | CATATAN (diterima) | Satu Group Key bersama: setiap anggota dapat memulai rotasi kunci atau mengirim clipboard. Sesuai model ancaman yang diputuskan |
 | 13 | Lalu lintas LAN terenkripsi tetapi beacon UDP tidak | CATATAN (diterima) | Beacon hanya memuat id grup (hash), id perangkat, port, nama; tidak ada rahasia |
 | 14 | Windows tidak ditandatangani | CATATAN | SmartScreen akan memperingatkan; cocokkan SHA-256 |

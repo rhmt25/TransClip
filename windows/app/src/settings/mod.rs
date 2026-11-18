@@ -2,7 +2,7 @@
 //! talks to the daemon over the named pipe, so the daemon's memory stays small.
 //!
 //! Layout: a left navigation column (logo, connection summary, pages) and a content area with a
-//! page title, the theme switcher in its top-right corner (pedoman_desain), and rows separated by
+//! page title, the theme switcher in its top-right corner (docs/design/guidelines.md), and rows separated by
 //! 1 px rules. There are no nested cards.
 
 mod theme;

@@ -1,6 +1,6 @@
 # Sistem desain TransClip
 
-Sumber aturan: `pedoman_desain/Pedoman.md`. Dokumen ini mencatat penerapannya di Windows dan Android.
+Sumber aturan: `docs/design/guidelines.md`. Dokumen ini mencatat penerapannya di Windows dan Android.
 
 ## Prinsip
 - Latar lembut, tidak pernah hitam atau putih pekat (putih hanya untuk permukaan kartu tema terang dan latar QR, yang butuh zona sunyi terang).
@@ -24,9 +24,9 @@ Kontras teks di atas aksen: 7:1 di tema gelap; di tema terang 2,8:1 (putih di `#
 
 ## Penerapan
 - **Windows (egui):** `windows/app/src/settings/theme.rs` (token, font Segoe UI dan Consolas, komponen toggle, tombol, badge, navigasi). Kolom navigasi kiri, judul halaman, baris pengaturan dengan garis pemisah. Tema disimpan di `config.toml` (`theme`), mengikuti Windows bila `auto`.
-- **Overlay radial:** `windows/app/src/radial/render.rs`. Segmen terpisah dengan sudut membulat dan celah, pusat sebagai zona batal ("N item / Lepas di sini untuk batal"), latar arang transparan `rgba(18,21,26,0.88)`, tepi biru muda, sorotan `#38BDF8`, pusat memerah saat sorotan batal. Bentuk mengikuti `pedoman_desain/bentuk radial desain.jpg`.
+- **Overlay radial:** `windows/app/src/radial/render.rs`. Segmen terpisah dengan sudut membulat dan celah, pusat sebagai zona batal ("N item / Lepas di sini untuk batal"), latar arang transparan `rgba(18,21,26,0.88)`, tepi biru muda, sorotan `#38BDF8`, pusat memerah saat sorotan batal. Bentuk mengikuti `docs/design/radial-shape.jpg`.
 - **Android (Compose):** `android/app/src/main/kotlin/io/transclip/app/ui/` (`Theme.kt`, `Components.kt`, `Screens.kt`). Tiga tujuan di navigasi bawah: Beranda, Pairing, Pengaturan. Tema disimpan di DataStore (`themeMode`).
-- **Ikon:** `Icon.png` di root diolah menjadi `windows/app/assets/*.ico` (aplikasi, jeda, galat), `icon-256.png` (jendela), dan ikon adaptif Android (`mipmap-anydpi-v26`, latar `#12151A`, ikon monokrom untuk tema Android 13+).
+- **Ikon:** `assets/branding/Icon.png` diolah menjadi `windows/app/assets/*.ico` (aplikasi, jeda, galat), `icon-256.png` (jendela), dan ikon adaptif Android (`mipmap-anydpi-v26`, latar `#12151A`, ikon monokrom untuk tema Android 13+).
 - **Windows Search:** daemon menjaga pintasan `%APPDATA%\Microsoft\Windows\Start Menu\Programs\TransClip.lnk` (bisa dimatikan di Settings → Umum → Windows). Windows mengindeks menu Start, jadi "TransClip" muncul di pencarian dan membuka jendela Settings.
 
 ## Revisi 2 (umpan balik pengguna)
@@ -34,7 +34,7 @@ Kontras teks di atas aksen: 7:1 di tema gelap; di tema terang 2,8:1 (putih di `#
 - Tata letak tidak lagi berupa deretan baris: Windows memakai kolom (tile perangkat + panel QR, panel pengaturan dua kolom); Android memakai hero dengan angka besar, tiga kartu aksi, dan karusel kartu perangkat.
 - Teks dipangkas; penjelasan panjang dipindah ke tooltip atau dihapus.
 - Kontrol sesuai fungsi: *switch* untuk pengaturan aktif/nonaktif, *checkbox* untuk memilih beberapa item (mis. perangkat yang dicabut).
-- Ikon aplikasi (`.exe`, tray, jendela, launcher Android) memakai `Icon_bg_putih.png` dengan latar putih (launcher: latar adaptif `#FEFEFE` agar tidak hitam); logo di dalam aplikasi memakai `Icon.png` yang transparan.
+- Ikon aplikasi (`.exe`, tray, jendela, launcher Android) memakai `assets/branding/Icon_bg_putih.png` dengan latar putih (launcher: latar adaptif `#FEFEFE` agar tidak hitam); logo di dalam aplikasi memakai `assets/branding/Icon.png` yang transparan.
 
 ## Revisi 3
 - Hapus elemen dekoratif: tab berblok, angka besar jumlah perangkat, kartu hero, lencana bernomor. Tab Windows memakai garis bawah aksen; status berupa satu kalimat dengan titik status.
