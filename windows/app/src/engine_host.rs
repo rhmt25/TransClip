@@ -351,6 +351,11 @@ fn handler(hub: Arc<Hub>) -> Handler {
                     {
                         crate::autostart::apply(cfg.autostart).map_err(|e| e.to_string())?;
                     }
+                    if cfg.start_menu != old.start_menu
+                        && std::env::var_os(crate::paths::DATA_DIR_ENV).is_none()
+                    {
+                        crate::sendto::set_start_menu(cfg.start_menu).map_err(|e| e.to_string())?;
+                    }
                     if cfg.paused != old.paused {
                         let _ = hub.commands.send(ToEngine::SetPaused(cfg.paused));
                     }

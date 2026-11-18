@@ -119,7 +119,7 @@ class SyncService : Service() {
         ).build()
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.stat_notify_sync)
+            .setSmallIcon(R.drawable.ic_stat_transclip)
             .setContentTitle(getString(R.string.app_name))
             .setContentText(title)
             .setOngoing(true)

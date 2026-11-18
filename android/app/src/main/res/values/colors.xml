@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- pedoman_desain: soft off-white canvas, sky-blue accent -->
+    <color name="canvas">#F7F9FC</color>
+    <color name="ic_launcher_background">#12151A</color>
+</resources>

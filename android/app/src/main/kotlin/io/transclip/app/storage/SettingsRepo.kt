@@ -33,6 +33,8 @@ data class Settings(
     /** SAF tree URI of the receive folder; empty means `Download/TransClip`. */
     val downloadTreeUri: String = "",
     val onboardingDone: Boolean = false,
+    /** `auto` (follow the system), `light` or `dark`. */
+    val themeMode: String = "auto",
 ) {
     companion object {
         const val MAX_NAME_BYTES = 64
@@ -63,6 +65,7 @@ class SettingsRepo(private val store: DataStore<Preferences>) {
             btPriority = p[BT_PRIORITY] ?: emptySet(),
             downloadTreeUri = p[DOWNLOAD_URI].orEmpty(),
             onboardingDone = p[ONBOARDING] ?: false,
+            themeMode = p[THEME] ?: "auto",
         )
     }
 
@@ -82,6 +85,7 @@ class SettingsRepo(private val store: DataStore<Preferences>) {
             p[BT_PRIORITY] = next.btPriority
             p[DOWNLOAD_URI] = next.downloadTreeUri
             p[ONBOARDING] = next.onboardingDone
+            p[THEME] = next.themeMode
         }
     }
 
@@ -97,5 +101,6 @@ class SettingsRepo(private val store: DataStore<Preferences>) {
         val BT_PRIORITY = stringSetPreferencesKey("bt_priority")
         val DOWNLOAD_URI = stringPreferencesKey("download_tree_uri")
         val ONBOARDING = booleanPreferencesKey("onboarding_done")
+        val THEME = stringPreferencesKey("theme_mode")
     }
 }

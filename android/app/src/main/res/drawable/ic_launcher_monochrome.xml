@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Themed (Android 13+) launcher icon: a clipboard with two exchange arrows. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <group android:scaleX="0.6" android:scaleY="0.6" android:pivotX="54" android:pivotY="54">
+        <path android:fillColor="#FF000000" android:pathData="M38,30h32a6,6 0 0,1 6,6v40a6,6 0 0,1 -6,6H38a6,6 0 0,1 -6,-6V36a6,6 0 0,1 6,-6zM44,24h20v10H44z" android:fillType="evenOdd"/>
+        <path android:fillColor="#00000000" android:strokeColor="#FF000000" android:strokeWidth="4" android:strokeLineCap="round" android:strokeLineJoin="round" android:pathData="M42,50h22l-6,-6M66,64H44l6,6"/>
+    </group>
+</vector>

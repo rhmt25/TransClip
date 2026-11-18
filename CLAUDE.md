@@ -33,13 +33,14 @@ Agent tidak punya perangkat fisik. Untuk task [MANUAL]:
 * **Clipdeck/** adalah referensi milik orang lain berlisensi GPL-2.0-or-later: boleh dibaca untuk ide/pola, **tidak boleh** menyalin kodenya. Jangan mengubah isi folder itu.
 * Jangan menambah dependency besar di luar PLAN §2 tanpa entri `DECISIONS.md`.
 * Jangan menghapus/menonaktifkan test untuk membuat build hijau.
+* Antarmuka mengikuti `pedoman_desain/Pedoman.md` dan `docs/design-system.md` (token warna, tanpa kartu bersarang, tombol tema).
 * Bahasa: kode, identifier, komentar kode, dan pesan commit dalam **Bahasa Inggris**; dokumen di `docs/`, teks UI, dan komunikasi dengan pengguna dalam **Bahasa Indonesia** (UI siapkan resource string agar bisa ditambah Bahasa Inggris nanti).
 
 ## Konvensi kode
 ### Rust (`windows/`)
 * `cargo fmt`; `cargo clippy --workspace --all-targets -- -D warnings`.
 * Error: `thiserror` di crate library, `anyhow` hanya di `app`.
-* `unsafe` hanya di modul Win32 (`app/src/{clipboard,radial,tray,bluetooth,ipc,paths,secrets,single_instance}`), setiap blok diberi komentar `// SAFETY:`.
+* `unsafe` hanya di modul Win32 (`app/src/{clipboard,radial,tray,bluetooth,ipc,paths,secrets,single_instance,theme_sys,autostart}`), setiap blok diberi komentar `// SAFETY:`.
 * Crate `proto` dan `engine` tidak boleh bergantung pada crate `windows`.
 * Logging lewat `tracing` dengan field terstruktur.
 

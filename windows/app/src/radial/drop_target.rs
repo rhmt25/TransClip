@@ -113,12 +113,16 @@ fn dropped_paths(data: &IDataObject) -> Vec<PathBuf> {
 impl IDropTarget_Impl for DropTarget_Impl {
     fn DragEnter(
         &self,
-        _data: Ref<'_, IDataObject>,
+        data: Ref<'_, IDataObject>,
         _keys: MODIFIERKEYS_FLAGS,
         pt: &POINTL,
         effect: *mut DROPEFFECT,
     ) -> windows::core::Result<()> {
+        // The centre of the menu shows how many items are being dragged.
+        let count = data.as_ref().map_or(0, |d| dropped_paths(d).len());
+        self.shared.items.store(count, Ordering::Relaxed);
         self.track(pt, effect);
+        self.notify(WM_RADIAL_HOVER);
         Ok(())
     }
 

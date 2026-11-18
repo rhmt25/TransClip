@@ -18,7 +18,7 @@ object TransferNotifier {
         )
         val text = context.getString(if (incoming) R.string.transfer_received else R.string.transfer_sent, ok, failed)
         val n = NotificationCompat.Builder(context, CHANNEL)
-            .setSmallIcon(android.R.drawable.stat_sys_download_done)
+            .setSmallIcon(R.drawable.ic_stat_transclip)
             .setContentTitle(context.getString(R.string.app_name))
             .setContentText(text)
             .setAutoCancel(true)
@@ -32,7 +32,7 @@ object TransferNotifier {
             NotificationChannel(CHANNEL, context.getString(R.string.channel_transfers), NotificationManager.IMPORTANCE_DEFAULT),
         )
         val n = NotificationCompat.Builder(context, CHANNEL)
-            .setSmallIcon(android.R.drawable.stat_sys_warning)
+            .setSmallIcon(R.drawable.ic_stat_transclip)
             .setContentTitle(context.getString(R.string.app_name))
             .setContentText(context.getString(R.string.target_dir_fallback))
             .setAutoCancel(true)
@@ -56,7 +56,7 @@ object TransferNotifier {
             android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE,
         )
         val n = NotificationCompat.Builder(context, CHANNEL)
-            .setSmallIcon(android.R.drawable.stat_sys_download)
+            .setSmallIcon(R.drawable.ic_stat_transclip)
             .setContentTitle(context.getString(R.string.app_name))
             .setContentText(context.getString(R.string.image_available, bytes / 1024))
             .setContentIntent(pi)

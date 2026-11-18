@@ -11,7 +11,7 @@ pub mod geometry;
 pub mod keys;
 pub mod render;
 
-use std::sync::atomic::{AtomicI32, AtomicIsize, Ordering};
+use std::sync::atomic::{AtomicI32, AtomicIsize, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
 use tokio::sync::mpsc::UnboundedSender;
@@ -21,7 +21,7 @@ use windows::Win32::Graphics::Gdi::{
     CreateCompatibleDC, CreateDIBSection, CreateFontW, DeleteDC, DeleteObject, DrawTextW, GetDC,
     ReleaseDC, SelectObject, SetBkMode, SetTextColor, AC_SRC_ALPHA, AC_SRC_OVER, BITMAPINFO,
     BITMAPINFOHEADER, BI_RGB, BLENDFUNCTION, DEFAULT_CHARSET, DIB_RGB_COLORS, DT_CENTER,
-    DT_NOPREFIX, DT_SINGLELINE, DT_VCENTER, TRANSPARENT,
+    DT_END_ELLIPSIS, DT_NOPREFIX, DT_SINGLELINE, DT_TOP, DT_VCENTER, HDC, TRANSPARENT,
 };
 use windows::Win32::System::Ole::{OleInitialize, RegisterDragDrop, RevokeDragDrop};
 use windows::Win32::UI::HiDpi::GetDpiForSystem;
@@ -96,6 +96,8 @@ pub struct Shared {
     pub hover: AtomicI32,
     pub tx: UnboundedSender<ToEngine>,
     pub ui_hwnd: AtomicIsize,
+    /// Number of dragged items, learned when the drag enters the overlay.
+    pub items: AtomicUsize,
 }
 
 /// Controller owned by the UI thread.
@@ -136,6 +138,7 @@ impl Radial {
                 hover: AtomicI32::new(-2),
                 tx,
                 ui_hwnd: AtomicIsize::new(0),
+                items: AtomicUsize::new(0),
             }),
             overlay: HWND::default(),
             peers: Vec::new(),
@@ -305,6 +308,7 @@ impl Radial {
             targets,
         });
         self.shared.hover.store(-2, Ordering::Relaxed);
+        self.shared.items.store(0, Ordering::Relaxed);
         self.last_hover = -2;
         self.idle_ticks = 0;
         self.draw(POINT {
@@ -419,95 +423,13 @@ impl Radial {
             std::ptr::copy_nonoverlapping(pixels.as_ptr(), bits.cast::<u8>(), pixels.len());
             let old = SelectObject(mem, bmp.into());
 
-            let scale = layout.inner / 40.0;
-            let font = CreateFontW(
-                (16.0 * scale).round() as i32,
-                0,
-                0,
-                0,
-                600,
-                0,
-                0,
-                0,
-                DEFAULT_CHARSET,
-                Default::default(),
-                Default::default(),
-                Default::default(),
-                0,
-                w!("Segoe UI"),
-            );
-            let old_font = SelectObject(mem, font.into());
-            SetBkMode(mem, TRANSPARENT);
-            // Premultiplied alpha: no colour channel may exceed the ring's alpha (>= 225).
-            SetTextColor(mem, COLORREF(0x00DC_DCDC));
-            let r_mid = (layout.inner + layout.outer) / 2.0;
-            for (i, target) in active.targets.iter().enumerate() {
-                let rad = segment_centre_deg(i, n).to_radians();
-                let cx = layout.centre + r_mid * rad.sin();
-                let cy = layout.centre - r_mid * rad.cos();
-                let half_w = ((layout.outer - layout.inner) * 0.95).max(60.0 * scale);
-                let mut rect = RECT {
-                    left: (cx - half_w) as i32,
-                    top: (cy - 14.0 * scale) as i32,
-                    right: (cx + half_w) as i32,
-                    bottom: (cy + 14.0 * scale) as i32,
-                };
-                let mut text: Vec<u16> = target.label().encode_utf16().collect();
-                DrawTextW(
-                    mem,
-                    &mut text,
-                    &mut rect,
-                    DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX,
-                );
-            }
-            // The centre disc is the cancel drop zone: a cross and a label.
-            let mut cross: Vec<u16> = "\u{00D7}".encode_utf16().collect();
-            let big = CreateFontW(
-                (34.0 * scale).round() as i32,
-                0,
-                0,
-                0,
-                400,
-                0,
-                0,
-                0,
-                DEFAULT_CHARSET,
-                Default::default(),
-                Default::default(),
-                Default::default(),
-                0,
-                w!("Segoe UI"),
-            );
-            let prev = SelectObject(mem, big.into());
-            let mut cross_rect = RECT {
-                left: (layout.centre - layout.inner) as i32,
-                top: (layout.centre - layout.inner * 0.95) as i32,
-                right: (layout.centre + layout.inner) as i32,
-                bottom: layout.centre as i32,
-            };
-            DrawTextW(
+            draw_labels(
                 mem,
-                &mut cross,
-                &mut cross_rect,
-                DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX,
+                &layout,
+                &active.targets,
+                hover,
+                self.shared.items.load(Ordering::Relaxed),
             );
-            SelectObject(mem, prev);
-            let _ = DeleteObject(big.into());
-            let mut cancel: Vec<u16> = "Batal".encode_utf16().collect();
-            let mut cancel_rect = RECT {
-                left: (layout.centre - layout.inner) as i32,
-                top: layout.centre as i32,
-                right: (layout.centre + layout.inner) as i32,
-                bottom: (layout.centre + layout.inner * 0.55) as i32,
-            };
-            DrawTextW(
-                mem,
-                &mut cancel,
-                &mut cancel_rect,
-                DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX,
-            );
-            SelectObject(mem, old_font);
-            let _ = DeleteObject(font.into());
 
             let blend = BLENDFUNCTION {
                 BlendOp: AC_SRC_OVER as u8,
@@ -534,6 +456,116 @@ impl Radial {
             ReleaseDC(None, screen);
         }
     }
+}
+
+/// Draw the segment names and the centre text with GDI onto the premultiplied bitmap.
+///
+/// # Safety
+/// `mem` must be a memory DC with the ring bitmap selected into it.
+unsafe fn draw_labels(mem: HDC, layout: &Layout, targets: &[Target], hover: i32, items: usize) {
+    let scale = layout.corner / 10.0;
+    let font = |px: f64, weight: i32| {
+        CreateFontW(
+            (px * scale).round() as i32,
+            0,
+            0,
+            0,
+            weight,
+            0,
+            0,
+            0,
+            DEFAULT_CHARSET,
+            Default::default(),
+            Default::default(),
+            Default::default(),
+            0,
+            w!("Segoe UI"),
+        )
+    };
+    let draw =
+        |text: &str, rect: &mut RECT, flags: windows::Win32::Graphics::Gdi::DRAW_TEXT_FORMAT| {
+            let mut wide: Vec<u16> = text.encode_utf16().collect();
+            DrawTextW(mem, &mut wide, rect, flags | DT_NOPREFIX);
+        };
+    let name_font = font(15.5, 600);
+    let old_font = SelectObject(mem, name_font.into());
+    SetBkMode(mem, TRANSPARENT);
+    let n = targets.len();
+    let r_mid = layout.label_radius();
+    let half_w = ((layout.outer - layout.inner) * 0.9).max(64.0 * scale);
+    for (i, target) in targets.iter().enumerate() {
+        // Premultiplied alpha: no channel may exceed the shape's alpha (>= 224). The highlighted
+        // segment is sky blue, so its text is dark.
+        let colour = if usize::try_from(hover).ok() == Some(i) {
+            COLORREF(0x001A_110B)
+        } else {
+            COLORREF(0x00DE_DAD6)
+        };
+        SetTextColor(mem, colour);
+        let rad = segment_centre_deg(i, n).to_radians();
+        let cx = layout.centre + r_mid * rad.sin();
+        let cy = layout.centre - r_mid * rad.cos();
+        let mut rect = RECT {
+            left: (cx - half_w) as i32,
+            top: (cy - 14.0 * scale) as i32,
+            right: (cx + half_w) as i32,
+            bottom: (cy + 14.0 * scale) as i32,
+        };
+        draw(
+            &target.label(),
+            &mut rect,
+            DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS,
+        );
+    }
+
+    // The centre disc is the cancel drop zone: how many items are being dragged, and the hint.
+    let hot = hover == -1;
+    let title = match items {
+        0 => "Lepas file".to_owned(),
+        k => format!("{k} item"),
+    };
+    SetTextColor(mem, COLORREF(0x00F9_F5F1));
+    let big = font(20.0, 700);
+    SelectObject(mem, big.into());
+    let c = layout.centre;
+    let w2 = layout.inner * 0.92;
+    let mut title_rect = RECT {
+        left: (c - w2) as i32,
+        top: (c - layout.inner * 0.62) as i32,
+        right: (c + w2) as i32,
+        bottom: (c - layout.inner * 0.08) as i32,
+    };
+    draw(
+        &title,
+        &mut title_rect,
+        DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS,
+    );
+    let _ = DeleteObject(big.into());
+    let small = font(12.0, 400);
+    SelectObject(mem, small.into());
+    SetTextColor(
+        mem,
+        if hot {
+            COLORREF(0x0071_71F8)
+        } else {
+            COLORREF(0x00B8_A094)
+        },
+    );
+    let mut hint_rect = RECT {
+        left: (c - w2) as i32,
+        top: (c - layout.inner * 0.04) as i32,
+        right: (c + w2) as i32,
+        bottom: (c + layout.inner * 0.62) as i32,
+    };
+    draw(
+        "Lepas di sini
+untuk batal",
+        &mut hint_rect,
+        DT_CENTER | DT_TOP,
+    );
+    SelectObject(mem, old_font);
+    let _ = DeleteObject(small.into());
+    let _ = DeleteObject(name_font.into());
 }
 
 #[cfg(test)]

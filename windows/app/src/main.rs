@@ -18,6 +18,7 @@ mod settings;
 mod single_instance;
 mod strings;
 mod target_dir;
+mod theme_sys;
 mod tray;
 mod ui_thread;
 
@@ -131,6 +132,13 @@ fn run() -> Result<i32> {
     }
     // Under a data-dir override (tests, portable use) the real Run key is left alone.
     if std::env::var_os(paths::DATA_DIR_ENV).is_none() {
+        // Refresh the Start menu entry (it points at this executable) without delaying start-up.
+        let start_menu = cfg.start_menu;
+        std::thread::spawn(move || {
+            if let Err(e) = sendto::set_start_menu(start_menu) {
+                tracing::warn!(error = %e, "cannot update the Start menu entry");
+            }
+        });
         if let Err(e) = autostart::apply(cfg.autostart) {
             tracing::warn!(error = %e, "cannot update the autostart entry");
         }
