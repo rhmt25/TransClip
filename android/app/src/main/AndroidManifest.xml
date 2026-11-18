@@ -43,6 +43,8 @@
             </intent-filter>
         </activity>
 
+        <receiver android:name=".service.PullImageReceiver" android:exported="false" />
+
         <service
             android:name=".clip.ClipAccessibilityService"
             android:exported="false"

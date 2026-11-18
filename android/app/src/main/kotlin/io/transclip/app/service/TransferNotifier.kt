@@ -39,4 +39,29 @@ object TransferNotifier {
             .build()
         runCatching { nm.notify(counter++, n) }
     }
+
+    /** "Image available - tap to fetch": the tap pulls it over the slow link. */
+    fun imageAvailable(context: Context, fromHex: String, id: String, bytes: Long) {
+        val nm = context.getSystemService(NotificationManager::class.java)
+        nm.createNotificationChannel(
+            NotificationChannel(CHANNEL, context.getString(R.string.channel_transfers), NotificationManager.IMPORTANCE_DEFAULT),
+        )
+        val intent = android.content.Intent(context, PullImageReceiver::class.java)
+            .putExtra("from", fromHex)
+            .putExtra("id", id)
+        val pi = android.app.PendingIntent.getBroadcast(
+            context,
+            id.hashCode(),
+            intent,
+            android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE,
+        )
+        val n = NotificationCompat.Builder(context, CHANNEL)
+            .setSmallIcon(android.R.drawable.stat_sys_download)
+            .setContentTitle(context.getString(R.string.app_name))
+            .setContentText(context.getString(R.string.image_available, bytes / 1024))
+            .setContentIntent(pi)
+            .setAutoCancel(true)
+            .build()
+        runCatching { nm.notify(counter++, n) }
+    }
 }

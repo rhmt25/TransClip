@@ -8,6 +8,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import java.net.InetAddress
 import java.net.InetSocketAddress
@@ -126,6 +127,46 @@ class BluetoothFailoverTest {
         assertTrue(a.mgr.onlinePeers().isEmpty())
         a.mgr.setBtPriority(setOf(deviceId(2)))
         waitFor("bluetooth link") { transport(a, 2) == Transport.BLUETOOTH }
+        scope.coroutineContext[kotlinx.coroutines.Job]?.cancel()
+    }
+
+    private class MemSink : ClipboardSink {
+        val items = java.util.concurrent.CopyOnWriteArrayList<RemoteClip>()
+        override fun apply(clip: RemoteClip) {
+            items += clip
+        }
+    }
+
+    @Test
+    fun bigImageOverBluetoothIsAnnouncedAndPulledOnDemand() = runBlocking {
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        val target = AtomicReference<PeerManager?>(null)
+        val a = node(scope, 1, FakeBt(target))
+        val b = node(scope, 2)
+        target.set(b.mgr)
+        a.mgr.setBtPriority(setOf(deviceId(2)))
+        val sinkA = MemSink()
+        val sinkB = MemSink()
+        val syncA = ClipboardSync(a.mgr, sinkA, deviceId(1), scope, ClipConfig(btInlineImageMax = 100))
+        val syncB = ClipboardSync(b.mgr, sinkB, deviceId(2), scope)
+        scope.launch { for (ev in a.mgr.events) syncA.handleEvent(ev) }
+        scope.launch { for (ev in b.mgr.events) syncB.handleEvent(ev) }
+        a.seen.send(seen(2, 1)) // the LAN address is unreachable
+        waitFor("bluetooth link") { transport(a, 2) == Transport.BLUETOOTH }
+
+        syncA.submitLocal(Clip.Image("image/png", 10, 10, ByteArray(500) { 7 }))
+        val available = within {
+            var found: ClipEvent.ImageAvailable? = null
+            while (found == null) {
+                val ev = syncB.events.receive()
+                if (ev is ClipEvent.ImageAvailable) found = ev
+            }
+            found
+        }
+        assertEquals(500L, available.bytes)
+        assertTrue(sinkB.items.isEmpty(), "the image must not arrive before it is pulled")
+        syncB.pull(deviceId(1), available.id)
+        waitFor("image applied") { sinkB.items.size == 1 }
         scope.coroutineContext[kotlinx.coroutines.Job]?.cancel()
     }
 }

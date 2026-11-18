@@ -337,6 +337,15 @@ impl PeerManager {
         });
     }
 
+    /// Transport of the link currently used for `id`, when online.
+    pub fn transport(&self, id: &DeviceId) -> Option<Transport> {
+        self.status
+            .borrow()
+            .iter()
+            .find(|p| &p.id == id)
+            .and_then(|p| p.transport)
+    }
+
     /// Peers that should get a Bluetooth link when the LAN is down (PLAN section 4.2).
     pub async fn set_bt_priority(&self, peers: HashSet<DeviceId>) {
         let _ = self.cmd.send(Internal::SetBtPriority(peers)).await;

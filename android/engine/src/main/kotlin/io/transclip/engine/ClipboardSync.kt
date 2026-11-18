@@ -58,7 +58,11 @@ fun interface ClipboardSink {
     fun apply(clip: RemoteClip)
 }
 
-data class ClipConfig(val ackTimeoutMs: Long = 15_000)
+data class ClipConfig(
+    val ackTimeoutMs: Long = 15_000,
+    /** Images larger than this are announced instead of pushed over Bluetooth. */
+    val btInlineImageMax: Int = 2 * 1024 * 1024,
+)
 
 class ClipException(val kind: Kind) : Exception(kind.name) {
     enum class Kind { TOO_LARGE, BAD_MIME }
@@ -78,6 +82,9 @@ sealed interface ClipEvent {
     data class Queued(val peer: DeviceId, val id: String) : ClipEvent
     data class Dropped(val peer: DeviceId, val id: String) : ClipEvent
     data class Applied(val from: DeviceId, val id: String) : ClipEvent
+
+    /** A large image was announced over a slow link; call [ClipboardSync.pull] to fetch it. */
+    data class ImageAvailable(val from: DeviceId, val id: String, val bytes: Long) : ClipEvent
 }
 
 /** An item waiting for delivery. */
@@ -119,6 +126,9 @@ class ClipboardSync(
     private var lastHash: String? = null
     private var lastTs = 0L
     private val queues = HashMap<DeviceId, OfflineQueue>()
+
+    /** Items announced to slow peers, kept for 10 minutes so they can be pulled. */
+    private val announced = HashMap<String, Pair<Long, QueuedItem>>()
     private val pending = ConcurrentHashMap<Pair<DeviceId, String>, CompletableDeferred<Pair<Boolean, String?>>>()
 
     /** The OS clipboard changed locally. Sends to online peers and queues for offline ones. */
@@ -161,6 +171,14 @@ class ClipboardSync(
                     onItem(event.from, m, event.frame.payload)
                     return null
                 }
+                is Message.Announce -> {
+                    events.send(ClipEvent.ImageAvailable(event.from, m.id, m.bytes))
+                    return null
+                }
+                is Message.Pull -> {
+                    onPull(event.from, m.id)
+                    return null
+                }
                 else -> return event
             }
             is ManagerEvent.Online -> {
@@ -173,6 +191,25 @@ class ClipboardSync(
     }
 
     private val rate = PeerRate()
+
+    /** Ask [from] for the payload of an announced item. */
+    suspend fun pull(from: DeviceId, id: String) {
+        mgr.send(from, Message.Pull(id))
+    }
+
+    private suspend fun onPull(from: DeviceId, id: String) {
+        val item = synchronized(lock) {
+            val cutoff = nowMs() - 600_000
+            announced.entries.removeAll { it.value.first < cutoff }
+            announced[id]?.second
+        }
+        if (item != null) {
+            // Pushed in full this time, whatever the link.
+            scope.launch { sendWithAckInline(from, item) }
+        } else {
+            runCatching { mgr.send(from, Message.Error(code = "gone", reference = id)) }
+        }
+    }
 
     private suspend fun onItem(from: DeviceId, message: Message, payload: ByteArray) {
         val (id, parsed) = parseItem(message, payload)
@@ -211,6 +248,24 @@ class ClipboardSync(
 
     /** Send once, wait for the ack, retry once, then report failure (PROTOCOL.md section 10). */
     private suspend fun sendWithAck(peer: DeviceId, item: QueuedItem) {
+        val clip = item.clip
+        if (clip is Clip.Image && mgr.transport(peer) == Transport.BLUETOOTH && clip.bytes.size > cfg.btInlineImageMax) {
+            // Too big for Bluetooth: tell the peer and let it pull when the user wants it.
+            val m = item.meta
+            synchronized(lock) { announced[m.id] = nowMs() to item }
+            val announce = Message.Announce(
+                m.id, m.origin.toHex(), m.ts, m.hash, "image", clip.mime, clip.w.toLong(), clip.h.toLong(), clip.bytes.size.toLong(),
+            )
+            if (runCatching { mgr.send(peer, announce) }.isSuccess) {
+                events.send(ClipEvent.Delivered(peer, m.id))
+                return
+            }
+        }
+        sendWithAckInline(peer, item)
+    }
+
+    /** The plain delivery path: payload inline, one retry. */
+    private suspend fun sendWithAckInline(peer: DeviceId, item: QueuedItem) {
         val id = item.meta.id
         repeat(2) {
             val waiter = CompletableDeferred<Pair<Boolean, String?>>()

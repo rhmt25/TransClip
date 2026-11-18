@@ -73,4 +73,4 @@ Prasyarat: **pair PC dan HP di pengaturan Bluetooth masing-masing** (Windows: Se
 2. Pastikan tersambung lewat Wi-Fi (HP menampilkan "· Wi-Fi"). Matikan Wi-Fi HP.
 3. Dalam ≈ 15 detik status berubah menjadi "· Bluetooth"; salin teks di PC → muncul di HP.
 4. Nyalakan Wi-Fi lagi → kembali ke "· Wi-Fi"; link Bluetooth ditutup setelah 60 detik tanpa teks hilang.
-Catatan: gambar besar (> 2 MiB) lewat Bluetooth belum memakai `announce`/`pull`; gambar dikirim langsung.
+Gambar > 2 MiB lewat Bluetooth tidak dikirim langsung: HP menampilkan notifikasi "Gambar tersedia — ketuk untuk ambil" (PC mengambilnya otomatis). Uji dengan screenshot besar saat Wi-Fi mati.

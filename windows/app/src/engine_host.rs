@@ -566,8 +566,15 @@ async fn start_engine(
         }
     });
     let sink = Arc::new(WindowsSink::new(ui.hwnd(), Arc::clone(paused)));
-    let (sync, mut clip_events) =
-        ClipboardSync::new(Arc::clone(&mgr), sink, device_id, ClipConfig::default());
+    let (sync, mut clip_events) = ClipboardSync::new(
+        Arc::clone(&mgr),
+        sink,
+        device_id,
+        ClipConfig {
+            bt_inline_image_max: usize::try_from(config.bt_inline_image_max).unwrap_or(usize::MAX),
+            ..ClipConfig::default()
+        },
+    );
     let configured = hub.download_dir();
     let target = crate::target_dir::resolve(&configured);
     if target.fell_back {
@@ -645,9 +652,25 @@ async fn start_engine(
             }
         }
     });
+    let ui_images = ui.clone();
+    let sync_for_pull = sync.clone();
     tokio::spawn(async move {
         while let Some(ev) = clip_events.recv().await {
             tracing::debug!(event = ?ev, "clipboard event");
+            if let engine::clip::ClipEvent::ImageAvailable { from, id, bytes } = ev {
+                // A large image waits on the sender over a slow link; fetch it now and say so.
+                ui_images.send(ToUi::Notify {
+                    title: strings::APP_NAME.into(),
+                    text: format!(
+                        "Mengambil gambar besar ({} KB) lewat Bluetooth…",
+                        bytes / 1024
+                    ),
+                });
+                let sync = sync_for_pull.clone();
+                tokio::spawn(async move {
+                    let _ = sync.pull(from, &id).await;
+                });
+            }
         }
     });
     Some(Running {

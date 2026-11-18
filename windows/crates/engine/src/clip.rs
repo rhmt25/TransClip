@@ -104,12 +104,15 @@ pub trait ClipboardSink: Send + Sync + 'static {
 pub struct ClipConfig {
     /// How long to wait for an `ack` before the single retry.
     pub ack_timeout: Duration,
+    /// Images larger than this are announced instead of pushed over Bluetooth.
+    pub bt_inline_image_max: usize,
 }
 
 impl Default for ClipConfig {
     fn default() -> Self {
         Self {
             ack_timeout: Duration::from_secs(15),
+            bt_inline_image_max: 2 * 1024 * 1024,
         }
     }
 }
@@ -163,6 +166,15 @@ pub enum ClipEvent {
         /// Item id.
         id: String,
     },
+    /// A large image was announced over a slow link; call [`ClipboardSync::pull`] to fetch it.
+    ImageAvailable {
+        /// Sender.
+        from: DeviceId,
+        /// Item id.
+        id: String,
+        /// Size in bytes.
+        bytes: u64,
+    },
     /// A queued item was dropped because the queue was full.
     Dropped {
         /// Peer.
@@ -189,6 +201,8 @@ struct State {
     queues: HashMap<DeviceId, OfflineQueue>,
     pending: HashMap<(DeviceId, String), oneshot::Sender<AckResult>>,
     rate: crate::ratelimit::PeerRate,
+    /// Items announced to slow peers, kept for 10 minutes so they can be pulled.
+    announced: HashMap<String, (std::time::Instant, QueuedItem)>,
 }
 
 struct Inner {
@@ -272,6 +286,7 @@ impl ClipboardSync {
                 queues: HashMap::new(),
                 pending: HashMap::new(),
                 rate: crate::ratelimit::PeerRate::default(),
+                announced: HashMap::new(),
             }),
             events,
         };
@@ -339,6 +354,37 @@ impl ClipboardSync {
         Ok(Submitted::Sent(meta))
     }
 
+    /// Ask `from` for the payload of an announced item.
+    pub async fn pull(&self, from: DeviceId, id: &str) -> Result<(), proto::ProtoError> {
+        self.inner
+            .mgr
+            .send(&from, Message::Pull { id: id.to_owned() }, Vec::new())
+            .await
+    }
+
+    async fn on_pull(&self, from: DeviceId, id: String) {
+        let item = {
+            let mut st = self.inner.state();
+            let ttl = Duration::from_secs(600);
+            st.announced.retain(|_, (t, _)| t.elapsed() < ttl);
+            st.announced.get(&id).map(|(_, i)| i.clone())
+        };
+        match item {
+            // Pushed in full this time, whatever the link.
+            Some(item) => {
+                tokio::spawn(send_with_ack_inline(Arc::clone(&self.inner), from, item));
+            }
+            None => {
+                let gone = Message::Error {
+                    code: "gone".into(),
+                    msg: None,
+                    reference: Some(id),
+                };
+                let _ = self.inner.mgr.send(&from, gone, Vec::new()).await;
+            }
+        }
+    }
+
     /// Process a manager event. Clipboard frames are consumed (`None`); everything else is
     /// returned for the application. A peer coming online flushes its offline queue.
     pub async fn handle_event(&self, event: ManagerEvent) -> Option<ManagerEvent> {
@@ -352,6 +398,18 @@ impl ClipboardSync {
                 }
                 m @ (Message::Text { .. } | Message::Image { .. }) => {
                     self.on_item(from, m, frame.payload).await;
+                    None
+                }
+                Message::Announce { id, bytes, .. } => {
+                    let _ = self
+                        .inner
+                        .events
+                        .send(ClipEvent::ImageAvailable { from, id, bytes })
+                        .await;
+                    None
+                }
+                Message::Pull { id } => {
+                    self.on_pull(from, id).await;
                     None
                 }
                 message => Some(ManagerEvent::Frame {
@@ -505,6 +563,38 @@ async fn enqueue(inner: &Arc<Inner>, peer: DeviceId, item: QueuedItem) {
 
 /// Send once, wait for the ack, retry once, then report failure (PROTOCOL.md section 10).
 async fn send_with_ack(inner: Arc<Inner>, peer: DeviceId, item: QueuedItem) {
+    if let Clip::Image { mime, w, h, bytes } = &*item.clip {
+        if inner.mgr.transport(&peer) == Some(crate::peers::Transport::Bluetooth)
+            && bytes.len() > inner.cfg.bt_inline_image_max
+        {
+            // Too big for Bluetooth: tell the peer and let it pull when the user wants it.
+            let id = item.meta.id.clone();
+            let announce = Message::Announce {
+                id: id.clone(),
+                origin: item.meta.origin.to_hex(),
+                ts: item.meta.ts,
+                hash: item.meta.hash.clone(),
+                kind: "image".into(),
+                mime: mime.clone(),
+                w: *w,
+                h: *h,
+                bytes: bytes.len() as u64,
+            };
+            inner
+                .state()
+                .announced
+                .insert(id.clone(), (std::time::Instant::now(), item.clone()));
+            if inner.mgr.send(&peer, announce, Vec::new()).await.is_ok() {
+                let _ = inner.events.send(ClipEvent::Delivered { peer, id }).await;
+                return;
+            }
+        }
+    }
+    send_with_ack_inline(inner, peer, item).await;
+}
+
+/// The plain delivery path: payload inline, one retry.
+async fn send_with_ack_inline(inner: Arc<Inner>, peer: DeviceId, item: QueuedItem) {
     let id = item.meta.id.clone();
     for _ in 0..2 {
         let (tx, rx) = oneshot::channel();
@@ -601,10 +691,24 @@ mod tests {
     }
 
     async fn node_at(id: u8, listen: SocketAddr, run_sync: bool, ack: Duration) -> Node {
+        node_with(id, listen, run_sync, ack, None, 2 * 1024 * 1024).await
+    }
+
+    async fn node_with(
+        id: u8,
+        listen: SocketAddr,
+        run_sync: bool,
+        ack: Duration,
+        bt: Option<Arc<dyn crate::peers::BtDialer>>,
+        inline_max: usize,
+    ) -> Node {
         let (seen_tx, seen_rx) = mpsc::channel(16);
-        let (mgr, mut mgr_events) = PeerManager::start(mgr_cfg(id, listen), seen_rx)
-            .await
-            .unwrap();
+        let mut mc = mgr_cfg(id, listen);
+        if bt.is_some() {
+            mc.bt = bt;
+            mc.bt_down_after = Duration::ZERO;
+        }
+        let (mgr, mut mgr_events) = PeerManager::start(mc, seen_rx).await.unwrap();
         let mgr = Arc::new(mgr);
         let sink = Arc::new(MemSink::default());
         let did = DeviceId([id; 16]);
@@ -612,7 +716,10 @@ mod tests {
             Arc::clone(&mgr),
             Arc::clone(&sink) as Arc<dyn ClipboardSink>,
             did,
-            ClipConfig { ack_timeout: ack },
+            ClipConfig {
+                ack_timeout: ack,
+                bt_inline_image_max: inline_max,
+            },
         );
         let s2 = sync.clone();
         let pump = tokio::spawn(async move {
@@ -671,6 +778,92 @@ mod tests {
             .await
             .unwrap()
             .unwrap()
+    }
+
+    struct FakeBt(Arc<Mutex<Option<Arc<PeerManager>>>>);
+
+    impl crate::peers::BtDialer for FakeBt {
+        fn connect(&self, _peer: DeviceId) -> crate::peers::BtConnectFuture {
+            let target = Arc::clone(&self.0);
+            Box::pin(async move {
+                let t = target
+                    .lock()
+                    .unwrap()
+                    .clone()
+                    .ok_or_else(|| std::io::Error::other("no bluetooth peer"))?;
+                let (a, b) = tokio::io::duplex(64 * 1024);
+                t.accept_stream(Box::new(b));
+                Ok(Box::new(a) as crate::peers::BoxedStream)
+            })
+        }
+    }
+
+    #[tokio::test]
+    async fn big_image_over_bluetooth_is_announced_and_pulled_on_demand() {
+        let target: Arc<Mutex<Option<Arc<PeerManager>>>> = Arc::default();
+        let mut a = node_with(
+            1,
+            SocketAddr::from(([127, 0, 0, 1], 0)),
+            true,
+            Duration::from_secs(5),
+            Some(Arc::new(FakeBt(Arc::clone(&target)))),
+            100,
+        )
+        .await;
+        let mut b = node(2).await;
+        *target.lock().unwrap() = Some(Arc::clone(&b.mgr));
+        a.mgr
+            .set_bt_priority(std::collections::HashSet::from([b.id]))
+            .await;
+        // The LAN address is unreachable, so only Bluetooth can connect them.
+        a.seen
+            .send(PeerSeen {
+                device_id: b.id,
+                addr: "127.0.0.1:1".parse().unwrap(),
+                platform: Platform::Windows,
+                name: "b".into(),
+                via: Via::Beacon,
+            })
+            .await
+            .unwrap();
+        wait_online(&a, 1).await;
+        assert_eq!(
+            a.mgr.transport(&b.id),
+            Some(crate::peers::Transport::Bluetooth)
+        );
+
+        let image = Clip::Image {
+            mime: "image/png".into(),
+            w: 10,
+            h: 10,
+            bytes: vec![7u8; 500],
+        };
+        assert!(matches!(
+            a.sync.submit_local(image).await,
+            Ok(Submitted::Sent(_))
+        ));
+        // B learns about the image but does not receive it yet.
+        let id = loop {
+            if let ClipEvent::ImageAvailable { from, id, bytes } = next_clip_event(&mut b).await {
+                assert_eq!((from, bytes), (a.id, 500));
+                break id;
+            }
+        };
+        assert!(b.sink.0.lock().unwrap().is_empty());
+        // Asking for it delivers the full image and applies it.
+        b.sync.pull(a.id, &id).await.unwrap();
+        loop {
+            if let ClipEvent::Applied { .. } = next_clip_event(&mut b).await {
+                break;
+            }
+        }
+        assert_eq!(b.sink.0.lock().unwrap().len(), 1);
+        // A pull for an unknown id is answered with an error, not silence.
+        b.sync
+            .pull(a.id, "00000000-0000-4000-8000-000000000001")
+            .await
+            .unwrap();
+        let _ = &mut a;
     }
 
     #[tokio::test]

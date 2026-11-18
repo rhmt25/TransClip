@@ -129,7 +129,7 @@ class EngineHost(private val context: Context) {
         }
         allowText = cfg.syncText
         allowImages = cfg.syncImages
-        val clipSync = ClipboardSync(manager, gate, me, s)
+        val clipSync = ClipboardSync(manager, gate, me, s, io.transclip.engine.ClipConfig(btInlineImageMax = cfg.btInlineImageMax))
         sync = clipSync
         val resolved = TargetDirRepo(context, settings).resolve()
         if (resolved.fellBack) {
@@ -185,6 +185,10 @@ class EngineHost(private val context: Context) {
                 Log.d(TAG, "clip event: ${ev::class.simpleName}")
                 when (ev) {
                     is ClipEvent.Applied -> AppState.addHistory("Diterima dari perangkat lain")
+                    is ClipEvent.ImageAvailable -> {
+                        AppState.addHistory("Gambar besar tersedia (${ev.bytes / 1024} KB)")
+                        TransferNotifier.imageAvailable(context, ev.from.toHex(), ev.id, ev.bytes)
+                    }
                     is ClipEvent.Delivered -> AppState.addHistory("Terkirim")
                     is ClipEvent.Failed -> AppState.addHistory("Gagal mengirim (${ev.reason})")
                     else -> {}
@@ -282,6 +286,11 @@ class EngineHost(private val context: Context) {
     suspend fun cancelTransfer(t: io.transclip.app.ActiveTransfer) {
         val tm = transfers ?: return
         if (t.incoming) tm.cancelIncoming(t.xferId) else tm.cancelBatch(t.batchId)
+    }
+
+    /** Fetch an announced image (the user tapped the notification). */
+    suspend fun pullImage(from: DeviceId, id: String) {
+        sync?.pull(from, id)
     }
 
     fun onlineCount(): Int = mgr?.onlinePeers()?.size ?: 0

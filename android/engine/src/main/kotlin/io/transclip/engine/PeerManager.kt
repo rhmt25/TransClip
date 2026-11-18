@@ -166,6 +166,9 @@ class PeerManager(
 
     fun handle(id: DeviceId): Link? = handles[id]
 
+    /** Transport of the link currently used for [id], when online. */
+    fun transport(id: DeviceId): Transport? = statusFlow.value.firstOrNull { it.id == id }?.transport
+
     /** Send a control-priority message to one peer. */
     suspend fun send(to: DeviceId, message: Message, payload: ByteArray = ByteArray(0)) {
         val link = handles[to] ?: throw ProtoException.Closed()

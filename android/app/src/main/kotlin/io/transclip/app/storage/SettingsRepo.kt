@@ -28,6 +28,8 @@ data class Settings(
     val autoScreenshots: Boolean = false,
     /** Device ids (hex) that should get a Bluetooth link when the LAN is down. */
     val btPriority: Set<String> = emptySet(),
+    /** Largest image sent in full over Bluetooth; bigger ones are announced. */
+    val btInlineImageMax: Int = 2 * 1024 * 1024,
     /** SAF tree URI of the receive folder; empty means `Download/TransClip`. */
     val downloadTreeUri: String = "",
     val onboardingDone: Boolean = false,
