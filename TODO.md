@@ -52,12 +52,12 @@ Baca `CLAUDE.md` dulu. Spesifikasi: `docs/PLAN.md` (arsitektur) dan `docs/PROTOC
 * **Status (2026-11-18):** Gradle 8.14.3 + wrapper, `:proto` (29 test hijau) dan `:app` (Compose, minSdk 29, AGP 8.11.1) selesai. `assembleDebug` dan `assembleRelease` (R8, 3,8 MB) berhasil. Tinggal **[MANUAL]**: pasang APK debug ke HP dan konfirmasi terbuka.
 
 
-### [ ] P0-06 · Spike S1 — Gambar ke clipboard Android & Gboard [MANUAL]
+### [~] P0-06 · Spike S1 — Gambar ke clipboard Android & Gboard [MANUAL]
 * **Dep:** P0-05
 * **Lakukan:** di branch `spike/s1`, tombol "Tulis gambar uji": simpan PNG bawaan ke `MediaStore` (`Pictures/TransClip`, `IS_PENDING`) lalu `setPrimaryClip(ClipData.newUri(...))` **dari foreground service** (bukan Activity). Minta pengguna membuka Gboard → ikon clipboard.
 * **Selesai jika:** `docs/spikes/S1-gboard-image.md` berisi: merek/versi HP, versi Gboard, apakah gambar muncul, apakah teks muncul, kesimpulan. Hasil negatif tetap valid; update PLAN §9 bila perlu.
 
-### [ ] P0-07 · Spike S2 — Auto-capture clipboard Android [MANUAL]
+### [~] P0-07 · Spike S2 — Auto-capture clipboard Android [MANUAL]
 * **Dep:** P0-05
 * **Lakukan:** di branch `spike/s2`:
   * `AccessibilityService` yang mencatat event (type, package, className, text) ke log saat pengguna menyalin teks di Chrome, WhatsApp, Gboard (salin dari papan ketik), dan app catatan.
@@ -70,7 +70,7 @@ Baca `CLAUDE.md` dulu. Spesifikasi: `docs/PLAN.md` (arsitektur) dan `docs/PROTOC
 * **Lakukan:** biner contoh `windows/app/examples/radial_spike.rs`: hook `WH_MOUSE_LL` + `WH_KEYBOARD_LL`, saat drag + Right Ctrl tampilkan jendela layered (lingkaran semi-transparan) dengan `IDropTarget`; saat drop, tampilkan MessageBox daftar file.
 * **Selesai jika:** `docs/spikes/S3-radial-drop.md` menjelaskan: berhasil/tidak dari Explorer, Desktop, Chrome (unduhan), aplikasi elevated; perilaku multi-monitor & DPI; keputusan aktivasi final (pemicu default).
 
-### [ ] P0-09 · Spike S4 — RFCOMM Windows ↔ Android [MANUAL]
+### [~] P0-09 · Spike S4 — RFCOMM Windows ↔ Android [MANUAL]
 * **Dep:** P0-04, P0-05
 * **Lakukan:** server RFCOMM di Windows (Winsock `AF_BTH` + `WSASetService` dengan UUID PROTOCOL §2) yang mengirim balik byte; klien Android `createRfcommSocketToServiceRecord`. Uji juga arah sebaliknya (Android server `listenUsingRfcommWithServiceRecord`, Windows klien) dan Android ↔ Android.
 * **Selesai jika:** `docs/spikes/S4-rfcomm.md` mencatat keberhasilan tiap arah, throughput (KB/s) untuk 1 MB, dan API final Windows (Winsock vs WinRT).
