@@ -40,6 +40,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -420,6 +421,8 @@ private fun SwitchTile(label: String, checked: Boolean, modifier: Modifier, onCh
     }
 }
 
+private const val REPO_URL = "https://github.com/rhmt25/TransClip"
+
 @Composable
 fun SettingsScreen(
     settings: Settings?,
@@ -483,7 +486,22 @@ fun SettingsScreen(
                 ThemeSegments(themeMode, actions.setTheme)
             }
         }
-        Text("TransClip $version", style = Mono, color = t.text2, modifier = Modifier.padding(bottom = 24.dp))
+        val uriHandler = LocalUriHandler.current
+        Row(
+            Modifier.fillMaxWidth().padding(bottom = 24.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text("TransClip $version", style = Mono, color = t.text2)
+            Row(
+                Modifier.clip(RoundedCornerShape(6.dp)).clickable { uriHandler.openUri(REPO_URL) }.padding(horizontal = 8.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Icon(painterResource(R.drawable.ic_github), contentDescription = null, tint = t.text2, modifier = Modifier.size(16.dp))
+                Text(stringResource(R.string.settings_github), style = MaterialTheme.typography.bodySmall, color = t.text2)
+            }
+        }
     }
     if (wide) {
         Row(Modifier.fillMaxSize().padding(horizontal = 24.dp).verticalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(28.dp)) {

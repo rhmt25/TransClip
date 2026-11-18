@@ -20,6 +20,8 @@ use crate::ipc;
 const POLL_EVERY: Duration = Duration::from_millis(1500);
 const CALL_TIMEOUT: Duration = Duration::from_secs(3);
 const ICON_PNG: &[u8] = include_bytes!("../../assets/icon-256.png");
+const GITHUB_PNG: &[u8] = include_bytes!("../../assets/github-mark-64.png");
+const REPO_URL: &str = "https://github.com/rhmt25/TransClip";
 const APP_ICON_PNG: &[u8] = include_bytes!("../../assets/app-icon-256.png");
 
 fn window_icon() -> Option<egui::IconData> {
@@ -39,6 +41,23 @@ fn logo_texture(ctx: &egui::Context) -> Option<egui::TextureHandle> {
         egui::ColorImage::from_rgba_unmultiplied(size, img.as_raw()),
         egui::TextureOptions::LINEAR,
     ))
+}
+
+fn github_texture(ctx: &egui::Context) -> Option<egui::TextureHandle> {
+    let img = image::load_from_memory(GITHUB_PNG).ok()?.into_rgba8();
+    let size = [img.width() as usize, img.height() as usize];
+    Some(ctx.load_texture(
+        "github",
+        egui::ColorImage::from_rgba_unmultiplied(size, img.as_raw()),
+        egui::TextureOptions::LINEAR,
+    ))
+}
+
+/// Open the project page in the default browser. The URL is a constant, never user input.
+fn open_repo() {
+    let _ = std::process::Command::new("rundll32")
+        .args(["url.dll,FileProtocolHandler", REPO_URL])
+        .spawn();
 }
 
 fn runtime() -> Option<Arc<Backend>> {
@@ -279,6 +298,7 @@ enum Note {
 struct SettingsApp {
     backend: Arc<Backend>,
     logo: Option<egui::TextureHandle>,
+    github: Option<egui::TextureHandle>,
     mode: Mode,
     page: Page,
     daemon_up: bool,
@@ -307,6 +327,7 @@ impl SettingsApp {
         let mut app = Self {
             backend,
             logo: logo_texture(ctx),
+            github: github_texture(ctx),
             mode: Mode::Auto,
             page: Page::Devices,
             daemon_up: false,
@@ -554,6 +575,38 @@ impl SettingsApp {
             } else {
                 Page::Settings
             };
+        }
+    }
+
+    /// Small GitHub link in the bottom-left corner, out of the way of the content.
+    fn footer(&mut self, ui: &mut egui::Ui, p: &Palette) {
+        let Some(icon) = self.github.clone() else {
+            return;
+        };
+        let label = "GitHub";
+        let font = egui::FontId::new(12.5, egui::FontFamily::Proportional);
+        let galley = ui.painter().layout_no_wrap(label.to_owned(), font, p.text2);
+        let size = Vec2::new(14.0 + 6.0 + galley.size().x + 16.0, 26.0);
+        let (rect, resp) = ui.allocate_exact_size(size, egui::Sense::click());
+        let resp = resp
+            .on_hover_cursor(egui::CursorIcon::PointingHand)
+            .on_hover_text(REPO_URL);
+        let color = if resp.hovered() { p.text } else { p.text2 };
+        let icon_rect = egui::Rect::from_center_size(
+            egui::pos2(rect.left() + 8.0 + 7.0, rect.center().y),
+            Vec2::splat(14.0),
+        );
+        egui::Image::new(&icon).tint(color).paint_at(ui, icon_rect);
+        ui.painter().galley(
+            egui::pos2(
+                icon_rect.right() + 6.0,
+                rect.center().y - galley.size().y / 2.0,
+            ),
+            galley,
+            color,
+        );
+        if resp.clicked() {
+            open_repo();
         }
     }
 
@@ -1169,6 +1222,19 @@ impl eframe::App for SettingsApp {
         ui.ctx().request_repaint_after(POLL_EVERY);
         let p = theme::palette(self.mode.is_dark());
         theme::apply(ui.ctx(), &p);
+
+        egui::Panel::bottom("footer")
+            .frame(
+                egui::Frame::NONE
+                    .fill(p.canvas)
+                    .inner_margin(egui::Margin::symmetric(16, 6)),
+            )
+            .show_separator_line(false)
+            .show(ui, |ui| {
+                ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
+                    self.footer(ui, &p);
+                });
+            });
 
         egui::CentralPanel::default()
             .frame(
