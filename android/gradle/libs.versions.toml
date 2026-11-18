@@ -9,6 +9,8 @@ activityCompose = "1.10.1"
 coreKtx = "1.16.0"
 datastore = "1.1.7"
 documentfile = "1.0.1"
+zxingEmbedded = "4.3.0"
+zxingCore = "3.5.3"
 androidxTestExt = "1.2.1"
 androidxTestRunner = "1.6.2"
 lifecycle = "2.9.1"
@@ -19,6 +21,8 @@ bouncycastle = { module = "org.bouncycastle:bcprov-jdk18on", version.ref = "boun
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "coreKtx" }
+zxing-embedded = { module = "com.journeyapps:zxing-android-embedded", version.ref = "zxingEmbedded" }
+zxing-core = { module = "com.google.zxing:core", version.ref = "zxingCore" }
 androidx-documentfile = { module = "androidx.documentfile:documentfile", version.ref = "documentfile" }
 androidx-datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "datastore" }
 androidx-test-ext-junit = { module = "androidx.test.ext:junit", version.ref = "androidxTestExt" }

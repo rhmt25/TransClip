@@ -58,6 +58,8 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.documentfile)
+    implementation(libs.zxing.embedded)
+    implementation(libs.zxing.core)
     implementation(libs.androidx.lifecycle.runtime.compose)
     testImplementation(kotlin("test"))
     androidTestImplementation(kotlin("test"))

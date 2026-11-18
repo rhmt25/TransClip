@@ -44,3 +44,6 @@ Sisa P5-09: tombol Ubah/Reset di jendela Settings Windows (menunggu P4-04, memak
 
 ## T05 — Jendela Settings Windows (P4-01, P4-02)
 Jalankan `transclip.exe`, klik kanan tray → *Pengaturan* (atau `transclip.exe --settings`). Harapan: jendela dengan tab Perangkat / Pairing / Umum / Lanjutan; menutup jendela mengakhiri prosesnya (Task Manager) dan RAM daemon tidak naik. Tab Pairing: *Tampilkan kode pairing* → QR + hitung mundur 2 menit + *Salin kode*; QR harus terbaca aplikasi scanner umum. Tab Umum: setiap checkbox langsung berlaku, *Ubah…* memilih folder tujuan. Tanpa daemon: jendela menawarkan *Jalankan TransClip*.
+
+## T06 — Pairing QR di Android (P4-03)
+HP: *Scan QR* (izinkan kamera) → arahkan ke QR di jendela Settings PC (tab Pairing → Tampilkan kode pairing). Harapan: terhubung < 5 detik; bila HP sudah punya grup, muncul dialog konfirmasi *Ganti grup?*. Sebaliknya: *Buat grup* di HP menampilkan QR; Android B memindainya.

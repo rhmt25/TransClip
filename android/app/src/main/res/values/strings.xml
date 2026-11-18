@@ -29,6 +29,12 @@
     <string name="target_dir_title">Folder penerimaan</string>
     <string name="target_dir_change">Ubah…</string>
     <string name="target_dir_reset">Reset ke default</string>
+    <string name="pairing_scan">Scan QR</string>
+    <string name="pairing_scan_prompt">Arahkan kamera ke QR di perangkat lain</string>
+    <string name="pairing_replace_title">Ganti grup?</string>
+    <string name="pairing_replace_body">Perangkat ini sudah tergabung dalam grup. Bergabung ke grup baru akan memutus koneksi lama.</string>
+    <string name="pairing_replace_confirm">Ganti</string>
+    <string name="cancel">Batal</string>
     <string name="action_send_files">Kirim file</string>
     <string name="channel_transfers">Transfer file</string>
     <string name="transfer_received">%1$d file diterima, %2$d gagal</string>

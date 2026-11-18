@@ -276,7 +276,7 @@ Baca `CLAUDE.md` dulu. Spesifikasi: `docs/PLAN.md` (arsitektur) dan `docs/PROTOC
 * **Lakukan:** *Buat grup baru*, QR (`qrcode` → tekstur egui) dengan hitung mundur 2 menit, *Salin kode*, *Gabung dengan kode*, argumen `--pair`. Bergabung → simpan GK → engine restart koneksi.
 * **Selesai jika:** dua instans Windows (atau Windows + test peer) bergabung via kode dan terhubung; QR terbaca oleh aplikasi scanner umum.
 
-### [ ] P4-03 · Android: alur pairing
+### [~] P4-03 · Android: alur pairing
 * **Dep:** P3-07
 * **File:** `ui/PairingScreen.kt`
 * **Lakukan:** *Scan QR* (zxing-android-embedded, minta izin kamera), *Tempel kode*, *Buat grup*, *Tampilkan QR* (zxing core → Bitmap), validasi kedaluwarsa, konfirmasi bila mengganti grup yang ada.

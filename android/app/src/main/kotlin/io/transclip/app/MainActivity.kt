@@ -47,6 +47,17 @@ import io.transclip.engine.PeerState
 import io.transclip.proto.GroupKey
 import io.transclip.proto.PairingInfo
 import io.transclip.proto.ProtoException
+import android.graphics.Bitmap
+import android.graphics.Color
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.graphics.asImageBitmap
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.qrcode.QRCodeWriter
+import com.journeyapps.barcodescanner.ScanContract
+import com.journeyapps.barcodescanner.ScanOptions
 import io.transclip.app.share.copyToCache
 import io.transclip.app.storage.DEFAULT_RELATIVE_ROOT
 import io.transclip.app.storage.SettingsRepo
@@ -109,6 +120,48 @@ class MainActivity : ComponentActivity() {
                     app.engine.start()
                 }
             }
+        }
+        var pendingJoin by remember { mutableStateOf<String?>(null) }
+        val doJoin: (String) -> Unit = { text ->
+            scope.launch {
+                message = try {
+                    val info = PairingInfo.parse(text)
+                    if (info.isExpired(System.currentTimeMillis() / 1000)) {
+                        getString(R.string.pairing_expired)
+                    } else {
+                        app.secrets.setGroupKey(info.gk)
+                        code = ""
+                        SyncService.start(this@MainActivity, SyncService.ACTION_RESTART)
+                        getString(R.string.pairing_joined)
+                    }
+                } catch (e: ProtoException) {
+                    getString(R.string.pairing_invalid)
+                }
+            }
+        }
+        // Joining replaces the current group, so ask first when this device already has one.
+        val requestJoin: (String) -> Unit = { text ->
+            scope.launch { if (app.secrets.groupKey() != null) pendingJoin = text else doJoin(text) }
+        }
+        val scan = rememberLauncherForActivityResult(ScanContract()) { result ->
+            result.contents?.let {
+                code = it
+                requestJoin(it)
+            }
+        }
+        pendingJoin?.let { text ->
+            AlertDialog(
+                onDismissRequest = { pendingJoin = null },
+                title = { Text(getString(R.string.pairing_replace_title)) },
+                text = { Text(getString(R.string.pairing_replace_body)) },
+                confirmButton = {
+                    TextButton(onClick = {
+                        pendingJoin = null
+                        doJoin(text)
+                    }) { Text(getString(R.string.pairing_replace_confirm)) }
+                },
+                dismissButton = { TextButton(onClick = { pendingJoin = null }) { Text(getString(R.string.cancel)) } },
+            )
         }
         val askNotifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
             SyncService.start(this)
@@ -190,23 +243,16 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = {
-                        scope.launch {
-                            message = try {
-                                val info = PairingInfo.parse(code)
-                                if (info.isExpired(System.currentTimeMillis() / 1000)) {
-                                    getString(R.string.pairing_expired)
-                                } else {
-                                    app.secrets.setGroupKey(info.gk)
-                                    code = ""
-                                    SyncService.start(this@MainActivity, SyncService.ACTION_RESTART)
-                                    getString(R.string.pairing_joined)
-                                }
-                            } catch (e: ProtoException) {
-                                getString(R.string.pairing_invalid)
-                            }
-                        }
-                    }) { Text(getString(R.string.pairing_join)) }
+                    Button(onClick = { requestJoin(code) }) { Text(getString(R.string.pairing_join)) }
+                    OutlinedButton(onClick = {
+                        scan.launch(
+                            ScanOptions()
+                                .setDesiredBarcodeFormats(ScanOptions.QR_CODE)
+                                .setPrompt(getString(R.string.pairing_scan_prompt))
+                                .setBeepEnabled(false)
+                                .setOrientationLocked(false),
+                        )
+                    }) { Text(getString(R.string.pairing_scan)) }
                     OutlinedButton(onClick = {
                         scope.launch {
                             val gk = app.secrets.groupKey() ?: GroupKey.generate().also { app.secrets.setGroupKey(it) }
@@ -225,7 +271,12 @@ class MainActivity : ComponentActivity() {
                     }) { Text(getString(R.string.pairing_create)) }
                 }
                 if (message.isNotEmpty()) Text(message)
-                if (invite.isNotEmpty()) Text(invite, style = MaterialTheme.typography.bodySmall)
+                if (invite.isNotEmpty()) {
+                    qrBitmap(invite)?.let {
+                        Image(it.asImageBitmap(), contentDescription = null, modifier = Modifier.size(240.dp))
+                    }
+                    Text(invite, style = MaterialTheme.typography.bodySmall)
+                }
             }
             if (history.isNotEmpty()) {
                 item { Text(getString(R.string.history_title), style = MaterialTheme.typography.titleMedium) }
@@ -253,3 +304,10 @@ class MainActivity : ComponentActivity() {
             .map { "${it.hostAddress}:$TCP_PORT" }
     }.getOrDefault(emptyList())
 }
+
+/** Render [text] as a QR code bitmap, black on white. Null when it does not fit. */
+private fun qrBitmap(text: String, size: Int = 640): Bitmap? = runCatching {
+    val m = QRCodeWriter().encode(text, BarcodeFormat.QR_CODE, size, size)
+    val px = IntArray(size * size) { i -> if (m.get(i % size, i / size)) Color.BLACK else Color.WHITE }
+    Bitmap.createBitmap(px, size, size, Bitmap.Config.ARGB_8888)
+}.getOrNull()
