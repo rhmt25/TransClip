@@ -151,6 +151,17 @@ pub fn dib_to_rgba(dib: &[u8]) -> Result<Rgba, DibError> {
     } else {
         0
     };
+    // Windows builds CF_DIBV5 from a plain CF_DIB by appending the three colour masks *after* the
+    // header even though the header already holds them: pixels then start 12 bytes later. The
+    // appended copy is recognisable because it repeats the masks stored in the header.
+    if compression == BI_BITFIELDS
+        && header_size >= 52
+        && dib
+            .get(40..52)
+            .is_some_and(|m| dib.get(header_size..header_size + 12) == Some(m))
+    {
+        masks_len = 12;
+    }
     let data_start = header_size + masks_len + palette;
     let stride = (u64::from(w) * u64::from(bpp)).div_ceil(32) * 4;
     let needed = stride * u64::from(h);
@@ -338,6 +349,29 @@ mod tests {
         d.extend_from_slice(&[0, 0, 255, 0, 255, 255, 255, 0]); // blue (b=255 at bits16..), white
         d.extend_from_slice(&[255, 0, 0, 0, 0, 255, 0, 0]); // red, green
         assert_eq!(png_pixels(&d).pixels, expected([255; 4]));
+    }
+
+    #[test]
+    fn v5_header_with_appended_masks_has_pixels_after_them() {
+        // What Windows produces when it converts a 32-bit BI_BITFIELDS CF_DIB to CF_DIBV5.
+        let mut d = vec![0u8; 124];
+        d[0..4].copy_from_slice(&124u32.to_le_bytes());
+        d[4..8].copy_from_slice(&2i32.to_le_bytes());
+        d[8..12].copy_from_slice(&1i32.to_le_bytes());
+        d[12..14].copy_from_slice(&1u16.to_le_bytes());
+        d[14..16].copy_from_slice(&32u16.to_le_bytes());
+        d[16..20].copy_from_slice(&BI_BITFIELDS.to_le_bytes());
+        let masks = [0x00ff_0000u32, 0x0000_ff00, 0x0000_00ff];
+        for (i, m) in masks.iter().enumerate() {
+            d[40 + i * 4..44 + i * 4].copy_from_slice(&m.to_le_bytes());
+        }
+        // The copy after the header, then two pixels: red and green (BGRX in memory).
+        for m in masks {
+            d.extend_from_slice(&m.to_le_bytes());
+        }
+        d.extend_from_slice(&[0, 0, 255, 0, 0, 255, 0, 0]);
+        let img = png_pixels(&d);
+        assert_eq!(img.pixels, vec![255, 0, 0, 255, 0, 255, 0, 255]);
     }
 
     #[test]

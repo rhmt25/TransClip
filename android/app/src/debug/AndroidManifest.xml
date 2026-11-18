@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- Test hook, present only in debug builds: puts text or an image on the system clipboard. -->
+        <receiver android:name=".debug.DebugClipReceiver" android:exported="true" />
+    </application>
+</manifest>
