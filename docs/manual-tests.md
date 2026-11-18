@@ -74,3 +74,19 @@ Prasyarat: **pair PC dan HP di pengaturan Bluetooth masing-masing** (Windows: Se
 3. Dalam ≈ 15 detik status berubah menjadi "· Bluetooth"; salin teks di PC → muncul di HP.
 4. Nyalakan Wi-Fi lagi → kembali ke "· Wi-Fi"; link Bluetooth ditutup setelah 60 detik tanpa teks hilang.
 Gambar > 2 MiB lewat Bluetooth tidak dikirim langsung: HP menampilkan notifikasi "Gambar tersedia — ketuk untuk ambil" (PC mengambilnya otomatis). Uji dengan screenshot besar saat Wi-Fi mati.
+
+## T11 — Hasil uji otomatis oleh agen (2026-11-18, PC + POCO F4 lewat USB debugging)
+| Uji | Hasil |
+|---|---|
+| Teks PC → HP, HP → PC (Share) | lulus |
+| Gambar HP → PC (Share) | lulus (warna piksel sama) |
+| **Gambar PC → HP lossless (M02)** | **lulus: 0 dari 16.000 piksel berbeda.** Menemukan dan memperbaiki bug `CF_DIBV5` (gambar bergeser 3 piksel) |
+| Screenshot otomatis HP → PC | lulus (`input keyevent 120` → gambar 1080x2400 di clipboard PC) |
+| Rate limit 20 item / 10 detik | lulus: 40 salinan cepat → 20 terkirim, 15 ditolak `busy`, tanpa crash |
+| Transfer 200 MB PC → HP | lulus, SHA-256 identik, ≈ 4 MB/s |
+| Rotasi kunci tanpa pencabutan | lulus: kunci baru di PC dan HP, tersambung ulang, sinkron berlanjut |
+| **Pencabutan perangkat (M14)** | **lulus:** HP tidak diberi tahu, tidak tersambung, daftar PC kosong |
+| Folder tujuan Windows (`set_download_dir`) | lulus: valid diterima, relatif ditolak, folder tak bisa dibuat ditolak, reset ke default |
+| Jendela Settings | tampil, 5 tab; tangkapan layar diperiksa |
+| Autostart | kunci Run terisi |
+| Tidak dapat diotomasi | ikon tray (Windows 11 tidak mengekspos ikon tray ke UI Automation), layanan Aksesibilitas (perlu dinyalakan ulang di HP setelah pemasangan ulang), drag radial dari Explorer, tidur/bangun PC, Bluetooth saat Wi-Fi mati, SAF picker |
