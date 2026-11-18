@@ -18,7 +18,7 @@ Sinkronisasi clipboard (teks dan gambar) dan transfer file/folder antara **Windo
 3. Perangkat saling terhubung dalam beberapa detik. Untuk menambah perangkat lain, ulangi dari perangkat mana pun yang sudah tergabung.
 
 ## Memakai
-- **Clipboard:** salin seperti biasa. Di Android, buka aplikasi atau pakai tile *Kirim clipboard* di Quick Settings (Android membatasi akses clipboard di latar belakang).
+- **Clipboard:** salin seperti biasa. Di Android, aktifkan layanan Aksesibilitas TransClip agar tersinkron otomatis; tanpa itu, buka aplikasi atau pakai tile *Kirim clipboard* di Quick Settings (Android membatasi akses clipboard di latar belakang).
 - **Menu radial (PC):** tahan klik kiri pada file, seret, tekan Shift (ubah di Settings → Radial), lepas di perangkat tujuan; lepas di pusat untuk batal.
 - **Kirim file dari PC:** klik kanan file, *Kirim ke*, *TransClip* (aktifkan di Settings, tab Umum), atau menu tray *Kirim file…*, atau `transclip.exe --send <berkas>`.
 - **Kirim file dari HP:** tombol *Kirim file* atau Share Sheet.
@@ -34,7 +34,7 @@ Sinkronisasi clipboard (teks dan gambar) dan transfer file/folder antara **Windo
 
 ## Keterbatasan
 - Windows tidak membagikan clipboard dari aplikasi yang dijalankan sebagai Administrator ke proses biasa (UIPI).
-- Android 10+ hanya mengizinkan membaca clipboard saat aplikasi di depan; salin otomatis dari latar belakang tidak tersedia.
+- Android 10+ hanya mengizinkan membaca clipboard saat aplikasi di depan; salin otomatis memakai layanan Aksesibilitas, dan sebagian ROM tidak menaruh screenshot di clipboard (gunakan opsi *Kirim screenshot otomatis*).
 - Folder kosong tidak dibuat di penyimpanan default Android (MediaStore tidak mengenal folder kosong).
 - Bluetooth hanya dipakai bila PC dan HP sudah di-pair di pengaturan Bluetooth masing-masing dan opsi *Bluetooth bila Wi-Fi putus* dicentang.
 - Sinkron otomatis di Android memerlukan layanan Aksesibilitas TransClip (hanya mendengarkan perubahan clipboard, tidak membaca layar); layar transparan berkedip sebentar saat menyalin. Setelah memasang ulang APK, matikan lalu nyalakan layanannya.
