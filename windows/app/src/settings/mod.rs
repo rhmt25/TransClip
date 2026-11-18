@@ -578,7 +578,7 @@ impl SettingsApp {
         }
     }
 
-    /// Small GitHub link in the bottom-left corner, out of the way of the content.
+    /// Small GitHub link shown next to the version line.
     fn footer(&mut self, ui: &mut egui::Ui, p: &Palette) {
         let Some(icon) = self.github.clone() else {
             return;
@@ -1174,14 +1174,17 @@ impl SettingsApp {
                 self.set_config(json!({ "log_level": level }));
             }
             ui.add_space(6.0);
-            ui.label(theme::secondary(
-                format!(
-                    "Versi {}  ·  port {}",
-                    env!("CARGO_PKG_VERSION"),
-                    self.config.port
-                ),
-                p,
-            ));
+            ui.horizontal(|ui| {
+                ui.label(theme::secondary(
+                    format!(
+                        "Versi {}  ·  port {}",
+                        env!("CARGO_PKG_VERSION"),
+                        self.config.port
+                    ),
+                    p,
+                ));
+                self.footer(ui, p);
+            });
         });
     }
 
@@ -1222,19 +1225,6 @@ impl eframe::App for SettingsApp {
         ui.ctx().request_repaint_after(POLL_EVERY);
         let p = theme::palette(self.mode.is_dark());
         theme::apply(ui.ctx(), &p);
-
-        egui::Panel::bottom("footer")
-            .frame(
-                egui::Frame::NONE
-                    .fill(p.canvas)
-                    .inner_margin(egui::Margin::symmetric(16, 6)),
-            )
-            .show_separator_line(false)
-            .show(ui, |ui| {
-                ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
-                    self.footer(ui, &p);
-                });
-            });
 
         egui::CentralPanel::default()
             .frame(
