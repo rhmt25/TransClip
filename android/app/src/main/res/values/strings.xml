@@ -59,6 +59,8 @@
     <string name="bt_priority">Bluetooth bila Wi-Fi putus</string>
     <string name="bt_permission_needed">Izinkan Bluetooth agar perangkat tetap tersambung saat Wi-Fi putus</string>
     <string name="image_available">Gambar tersedia (%d KB) — ketuk untuk ambil</string>
+    <string name="share_pick_title">Kirim ke…</string>
+    <string name="share_all_devices">Semua perangkat</string>
     <string name="action_send_files">Kirim file</string>
     <string name="channel_transfers">Transfer file</string>
     <string name="transfer_received">%1$d file diterima, %2$d gagal</string>

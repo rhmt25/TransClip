@@ -7,7 +7,10 @@ import android.net.Uri
 import android.os.Bundle
 import android.provider.OpenableColumns
 import android.widget.Toast
+import io.transclip.app.AppState
 import io.transclip.app.R
+import io.transclip.engine.PeerState
+import io.transclip.proto.DeviceId
 import io.transclip.app.TransClipApp
 import io.transclip.engine.Clip
 import io.transclip.engine.IMAGE_MIMES
@@ -47,7 +50,7 @@ fun copyToCache(context: Context, uri: Uri): File? = runCatching {
 
 /**
  * Share Sheet entry (PLAN section 6.6): text becomes a clipboard item, files are sent to every
- * online device. A device picker arrives with task P5-07.
+ * online device, or to the device chosen in a small dialog when several are online.
  */
 class ShareReceiverActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -61,12 +64,39 @@ class ShareReceiverActivity : Activity() {
             else -> emptyList()
         }
         val text = intent.getStringExtra(Intent.EXTRA_TEXT)
+        val online = AppState.peers.value.filter { it.state == PeerState.ONLINE }
+        // Files go to one chosen device or to all; with a single device there is nothing to choose.
+        val isFiles = uris.isNotEmpty() && (uris.size > 1 || readImageIsNull(appContext, uris[0], intent.type))
+        if (isFiles && online.size > 1) {
+            val names = arrayOf(getString(R.string.share_all_devices)) +
+                online.map { it.name.ifEmpty { it.id.toHex().take(8) } }
+            android.app.AlertDialog.Builder(this)
+                .setTitle(R.string.share_pick_title)
+                .setItems(names) { _, which ->
+                    val target = if (which == 0) emptyList() else listOf(online[which - 1].id)
+                    dispatch(app, appContext, uris, text, intent.type, target)
+                    finish()
+                }
+                .setOnCancelListener { finish() }
+                .show()
+            return
+        }
+        dispatch(app, appContext, uris, text, intent.type, emptyList())
+        finish()
+    }
+
+    private fun readImageIsNull(context: Context, uri: Uri, type: String?): Boolean {
+        val mime = (context.contentResolver.getType(uri) ?: type)?.lowercase()
+        return mime == null || mime !in IMAGE_MIMES
+    }
+
+    private fun dispatch(app: TransClipApp, appContext: Context, uris: List<Uri>, text: String?, type: String?, to: List<DeviceId>) {
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
-            val image = uris.singleOrNull()?.let { readImageClip(appContext, it, intent.type) }
+            val image = uris.singleOrNull()?.let { readImageClip(appContext, it, type) }
             val sentTo = when {
                 // One picture shared from the gallery or a screenshot: put it on the other devices' clipboard.
                 image != null -> if (app.engine.submit(image) != null) app.engine.onlineCount() else 0
-                uris.isNotEmpty() -> app.engine.sendFiles(uris.mapNotNull { copyToCache(appContext, it) })
+                uris.isNotEmpty() -> app.engine.sendFiles(uris.mapNotNull { copyToCache(appContext, it) }, to)
                 !text.isNullOrEmpty() -> if (app.engine.submit(Clip.Text(text)) != null) app.engine.onlineCount() else 0
                 else -> 0
             }
@@ -75,6 +105,5 @@ class ShareReceiverActivity : Activity() {
                 Toast.makeText(appContext, msg, Toast.LENGTH_SHORT).show()
             }
         }
-        finish()
     }
 }
