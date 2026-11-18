@@ -9,6 +9,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -191,8 +193,8 @@ private fun DevicesSection(peers: List<PeerStatus>, columns: Int, actions: HomeA
         } else {
             // A fixed number of equal columns that reflow with the screen; no horizontal scrolling.
             peers.chunked(columns).forEach { row ->
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    row.forEach { p -> DeviceCard(p, Modifier.weight(1f)) }
+                Row(Modifier.height(IntrinsicSize.Max), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    row.forEach { p -> DeviceCard(p, Modifier.weight(1f).fillMaxHeight()) }
                     repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
                 }
             }

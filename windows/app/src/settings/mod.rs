@@ -198,9 +198,9 @@ impl eframe::App for PickerApp {
                 let count = self.paths.len();
                 ui.label(theme::bold(
                     if count == 1 {
-                        "Kirim 1 item ke…".to_owned()
+                        "Kirim 1 Item Ke".to_owned()
                     } else {
-                        format!("Kirim {count} item ke…")
+                        format!("Kirim {count} Item Ke")
                     },
                     18.0,
                 ));
@@ -456,13 +456,13 @@ impl SettingsApp {
             ui.vertical(|ui| {
                 ui.label(theme::bold("TransClip", 18.0));
                 let (dot, text) = if !self.daemon_up {
-                    (p.err, "Tidak berjalan".to_owned())
+                    (p.err, "Tidak Berjalan".to_owned())
                 } else if self.online_count() > 0 {
-                    (p.ok, format!("{} terhubung", self.online_count()))
+                    (p.ok, format!("{} Terhubung", self.online_count()))
                 } else if self.paired {
                     (p.warn, "Menunggu".to_owned())
                 } else {
-                    (p.text2, "Belum ada grup".to_owned())
+                    (p.text2, "Belum Ada Grup".to_owned())
                 };
                 ui.horizontal(|ui| {
                     theme::dot(ui, dot);
@@ -560,9 +560,9 @@ impl SettingsApp {
         let online = self.online_count();
         ui.label(theme::bold(
             match (self.paired, online) {
-                (false, _) => "Belum ada grup".to_owned(),
-                (true, 0) => "Menunggu perangkat".to_owned(),
-                (true, n) => format!("{n} perangkat terhubung"),
+                (false, _) => "Belum Ada Grup".to_owned(),
+                (true, 0) => "Menunggu Perangkat".to_owned(),
+                (true, n) => format!("{n} Perangkat Terhubung"),
             },
             17.0,
         ));
@@ -600,40 +600,45 @@ impl SettingsApp {
         let avail = ui.available_width();
         let cols = (((avail + 12.0) / 272.0).floor() as usize).max(1);
         let tile_w = ((avail - 12.0 * (cols as f32 - 1.0)) / cols as f32).floor() - 1.0;
-        ui.horizontal_wrapped(|ui| {
-            ui.spacing_mut().item_spacing = Vec2::splat(12.0);
-            for peer in self.peers.clone() {
-                theme::tile(ui, p, tile_w, 150.0, |ui| {
-                    ui.horizontal(|ui| {
-                        theme::device_glyph(ui, p, &peer.platform, peer.state == "online");
-                        ui.vertical(|ui| {
-                            let name = if peer.name.is_empty() {
-                                "(tanpa nama)"
-                            } else {
-                                &peer.name
-                            };
-                            ui.label(theme::bold(name, 14.5)).on_hover_text(&peer.addr);
-                            let short: String = peer.id.chars().take(8).collect();
-                            ui.label(theme::mono(short, p));
+        let peers = self.peers.clone();
+        for (row_index, chunk) in peers.chunks(cols).enumerate() {
+            // Every tile in a row is as tall as the tallest one (measured on the previous frame).
+            let key = ui.scope_id().with(("tile-row", row_index, cols));
+            let min_h: f32 = ui.ctx().data(|d| d.get_temp(key)).unwrap_or(150.0);
+            let mut row_h: f32 = 150.0;
+            ui.horizontal_top(|ui| {
+                ui.spacing_mut().item_spacing.x = 12.0;
+                for peer in chunk {
+                    let h = theme::tile(ui, p, tile_w, min_h, |ui| {
+                        ui.horizontal(|ui| {
+                            theme::device_glyph(ui, p, &peer.platform, peer.state == "online");
+                            ui.vertical(|ui| {
+                                let name = if peer.name.is_empty() {
+                                    "(tanpa nama)"
+                                } else {
+                                    &peer.name
+                                };
+                                ui.label(theme::bold(name, 14.5)).on_hover_text(&peer.addr);
+                                let short: String = peer.id.chars().take(8).collect();
+                                ui.label(theme::mono(short, p));
+                            });
                         });
-                    });
-                    ui.add_space(4.0);
-                    ui.horizontal(|ui| {
-                        let (colour, label) = match peer.state.as_str() {
-                            "online" => (p.ok, "Terhubung"),
-                            "connecting" => (p.warn, "Menghubungkan"),
-                            _ => (p.text2, "Terputus"),
-                        };
-                        theme::dot(ui, colour);
-                        ui.label(theme::secondary(label, p));
-                        match peer.transport.as_str() {
-                            "lan" => theme::badge(ui, p, "Wi-Fi", p.ok),
-                            "bluetooth" => theme::badge(ui, p, "Bluetooth", p.warn),
-                            _ => {}
-                        }
-                    });
-                    ui.add_space(8.0);
-                    {
+                        ui.add_space(4.0);
+                        ui.horizontal(|ui| {
+                            let (colour, label) = match peer.state.as_str() {
+                                "online" => (p.ok, "Terhubung"),
+                                "connecting" => (p.warn, "Menghubungkan"),
+                                _ => (p.text2, "Terputus"),
+                            };
+                            theme::dot(ui, colour);
+                            ui.label(theme::secondary(label, p));
+                            match peer.transport.as_str() {
+                                "lan" => theme::badge(ui, p, "Wi-Fi", p.ok),
+                                "bluetooth" => theme::badge(ui, p, "Bluetooth", p.warn),
+                                _ => {}
+                            }
+                        });
+                        ui.add_space(8.0);
                         ui.horizontal(|ui| {
                             let mut on = priority.contains(&peer.id);
                             if theme::toggle(ui, p, &mut on)
@@ -648,33 +653,39 @@ impl SettingsApp {
                             }
                             ui.label(theme::secondary("Cadangan Bluetooth", p));
                         });
-                    }
-                });
+                    });
+                    row_h = row_h.max(h);
+                }
+            });
+            ui.add_space(12.0);
+            if (row_h - min_h).abs() > 0.5 {
+                ui.ctx().data_mut(|d| d.insert_temp(key, row_h));
+                ui.ctx().request_repaint();
             }
-            if self.peers.is_empty() {
-                theme::tile(ui, p, tile_w, 150.0, |ui| {
-                    theme::device_glyph(ui, p, "", false);
-                    ui.add_space(6.0);
-                    ui.label(theme::bold("Belum ada perangkat", 14.5));
-                    ui.label(theme::secondary("Pindai kode di kanan.", p));
-                });
-            }
-        });
+        }
+        if peers.is_empty() {
+            theme::tile(ui, p, tile_w, 150.0, |ui| {
+                theme::device_glyph(ui, p, "", false);
+                ui.add_space(6.0);
+                ui.label(theme::bold("Belum Ada Perangkat", 14.5));
+                ui.label(theme::secondary("Pindai kode di kanan.", p));
+            });
+        }
         if priority != self.config.bt_priority_peers {
             self.set_config(json!({ "bt_priority_peers": priority }));
         }
         ui.add_space(16.0);
-        theme::panel(ui, p, "Cara cepat", |ui| {
+        theme::panel(ui, p, "Cara Cepat", |ui| {
             let steps = [
                 (
                     "Salin",
                     "Teks dan gambar langsung muncul di perangkat lain.",
                 ),
                 (
-                    "Seret + tombol pemicu",
+                    "Seret + Tombol Pemicu",
                     "Menu lingkaran untuk memilih tujuan file.",
                 ),
-                ("Klik kanan, Kirim ke", "Kirim file dari Explorer."),
+                ("Klik Kanan, Kirim Ke", "Kirim file dari Explorer."),
             ];
             ui.columns(3, |cols| {
                 for (i, (title, body)) in steps.iter().enumerate() {
@@ -699,7 +710,7 @@ impl SettingsApp {
         if self.paired && stale {
             self.make_pairing_code(&ctx);
         }
-        theme::panel(ui, p, "Tambah perangkat", |ui| {
+        theme::panel(ui, p, "Tambah Perangkat", |ui| {
             if !self.paired {
                 ui.label(theme::secondary("Belum ada grup di PC ini.", p));
                 ui.add_space(8.0);
@@ -735,7 +746,7 @@ impl SettingsApp {
                 ctx.request_repaint_after(Duration::from_millis(500));
             }
             ui.add_space(6.0);
-            ui.collapsing("Gabung dengan kode", |ui| {
+            ui.collapsing("Gabung Dengan Kode", |ui| {
                 ui.add(
                     egui::TextEdit::singleline(&mut self.join_text)
                         .desired_width(f32::INFINITY)
@@ -755,7 +766,7 @@ impl SettingsApp {
                     }
                 }
             });
-            ui.collapsing("Ganti kunci grup", |ui| {
+            ui.collapsing("Ganti Kunci Grup", |ui| {
                 ui.label(theme::secondary("Pilih perangkat yang dicabut:", p));
                 for (i, peer) in self.peers.clone().iter().enumerate() {
                     if let Some(flag) = self.revoke.get_mut(i) {
@@ -842,7 +853,7 @@ impl SettingsApp {
     }
 
     fn settings_left(&mut self, ui: &mut egui::Ui, p: &Palette) {
-        theme::panel(ui, p, "Perangkat ini", |ui| {
+        theme::panel(ui, p, "Perangkat Ini", |ui| {
             let mut apply = false;
             ui.horizontal(|ui| {
                 ui.add(
@@ -882,7 +893,7 @@ impl SettingsApp {
         });
         ui.add_space(14.0);
 
-        theme::panel(ui, p, "Folder penerimaan", |ui| {
+        theme::panel(ui, p, "Folder Penerimaan", |ui| {
             let custom = !self.config.download_dir.is_empty();
             let shown = if custom {
                 self.config.download_dir.clone()
@@ -946,7 +957,7 @@ impl SettingsApp {
         });
         ui.add_space(14.0);
 
-        theme::panel(ui, p, "Menu radial", |ui| {
+        theme::panel(ui, p, "Menu Radial", |ui| {
             let current = crate::radial::keys::display(&self.config.radial_trigger);
             let recording = self.recording_key;
             let is_default = self.config.radial_trigger == crate::radial::keys::DEFAULT;
@@ -1021,7 +1032,7 @@ impl SettingsApp {
                 ui.add(egui::Image::new(logo).fit_to_exact_size(Vec2::splat(96.0)));
             }
             ui.add_space(12.0);
-            ui.label(theme::bold("TransClip belum berjalan", 20.0));
+            ui.label(theme::bold("TransClip Belum Berjalan", 20.0));
             ui.add_space(14.0);
             if theme::primary_button(ui, p, "Jalankan").clicked() {
                 if let Ok(exe) = std::env::current_exe() {

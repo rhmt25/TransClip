@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -401,7 +402,7 @@ class MainActivity : ComponentActivity() {
                 containerColor = t.canvas,
                 snackbarHost = { SnackbarHost(snackbar) },
                 topBar = {
-                    CenterAlignedTopAppBar(
+                    if (!wide) CenterAlignedTopAppBar(
                         title = {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Image(painterResource(R.drawable.logo), contentDescription = null, modifier = Modifier.size(28.dp))
@@ -441,7 +442,14 @@ class MainActivity : ComponentActivity() {
             ) { inner ->
                 Row(Modifier.padding(inner).fillMaxSize()) {
                     if (wide) {
-                        NavigationRail(containerColor = t.surface) {
+                        // The rail runs the full height of the screen; the logo and the theme
+                        // toggle live in it because there is no top bar on wide screens.
+                        NavigationRail(
+                            containerColor = t.surface,
+                            header = {
+                                Image(painterResource(R.drawable.logo), contentDescription = null, modifier = Modifier.padding(top = 12.dp).size(36.dp))
+                            },
+                        ) {
                             val colors = NavigationRailItemDefaults.colors(
                                 selectedIconColor = t.accent,
                                 selectedTextColor = t.text,
@@ -463,6 +471,9 @@ class MainActivity : ComponentActivity() {
                                 label = { Text(stringResource(R.string.nav_settings)) },
                                 colors = colors,
                             )
+                            Spacer(Modifier.weight(1f))
+                            ThemeToggle(themeMode) { m -> settingsActions.setTheme(m) }
+                            Spacer(Modifier.height(12.dp))
                         }
                     }
                     Column(Modifier.weight(1f).fillMaxSize()) {

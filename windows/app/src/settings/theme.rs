@@ -427,24 +427,32 @@ pub fn panel<R>(
         .inner
 }
 
-/// A fixed-size tile for one device.
-pub fn tile(ui: &mut egui::Ui, p: &Palette, w: f32, h: f32, add: impl FnOnce(&mut egui::Ui)) {
+/// A device tile of width `w` and at least height `h`; returns its final height so a row can
+/// make all of its tiles as tall as the tallest one.
+pub fn tile(
+    ui: &mut egui::Ui,
+    p: &Palette,
+    w: f32,
+    h: f32,
+    add: impl FnOnce(&mut egui::Ui),
+) -> f32 {
     egui::Frame::NONE
         .fill(p.surface)
         .stroke(Stroke::new(1.0, p.border))
         .corner_radius(CornerRadius::same(8))
         .inner_margin(egui::Margin::same(12))
         .show(ui, |ui| {
-            // A fixed box: children that stretch (bottom-up rows) cannot widen the tile.
-            ui.allocate_ui_with_layout(
-                Vec2::new(w - 24.0, h - 24.0),
-                Layout::top_down(Align::LEFT),
-                |ui| {
-                    ui.set_min_size(Vec2::new(w - 24.0, h - 24.0));
-                    add(ui);
-                },
-            );
-        });
+            // Always a vertical stack, whatever layout the row around the tile uses.
+            ui.vertical(|ui| {
+                ui.set_width(w - 24.0);
+                // The 1 px stroke is part of the frame, so subtract it too or the tile grows each frame.
+                ui.set_min_height(h - 26.0);
+                add(ui);
+            });
+        })
+        .response
+        .rect
+        .height()
 }
 
 /// Drawn device icon: a laptop, a phone, or an empty outline when the platform is unknown.

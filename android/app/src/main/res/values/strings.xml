@@ -3,9 +3,9 @@
     <string name="app_name">TransClip</string>
     <string name="channel_sync">Sinkronisasi</string>
     <string name="status_not_paired">Belum dipasangkan dengan perangkat lain</string>
-    <string name="status_paused">Sinkronisasi dijeda</string>
+    <string name="status_paused">Sinkronisasi Dijeda</string>
     <plurals name="status_online">
-        <item quantity="other">%d perangkat terhubung</item>
+        <item quantity="other">%d Perangkat Terhubung</item>
     </plurals>
     <string name="action_send_clip">Kirim clipboard</string>
     <string name="action_pause">Jeda</string>
@@ -26,12 +26,12 @@
     <string name="pairing_created">Kode disalin; berlaku 2 menit</string>
     <string name="history_title">Aktivitas</string>
     <string name="target_dir_fallback">Folder tujuan tidak dapat diakses, memakai Download/TransClip</string>
-    <string name="target_dir_title">Folder penerimaan</string>
+    <string name="target_dir_title">Folder Penerimaan</string>
     <string name="target_dir_change">Ubah…</string>
     <string name="target_dir_reset">Reset ke default</string>
     <string name="pairing_scan">Scan QR</string>
     <string name="pairing_scan_prompt">Arahkan kamera ke QR di perangkat lain</string>
-    <string name="pairing_replace_title">Ganti grup?</string>
+    <string name="pairing_replace_title">Ganti Grup?</string>
     <string name="pairing_replace_body">Perangkat ini sudah tergabung dalam grup. Bergabung ke grup baru akan memutus koneksi lama.</string>
     <string name="pairing_replace_confirm">Ganti</string>
     <string name="cancel">Batal</string>
@@ -47,7 +47,7 @@
     <string name="settings_receive_files">Terima file</string>
     <string name="settings_autostart">Mulai saat HP menyala</string>
     <string name="settings_share_log">Bagikan log</string>
-    <string name="transfers_title">Transfer berjalan</string>
+    <string name="transfers_title">Transfer Berjalan</string>
     <string name="transfer_cancel">Batal</string>
     <string name="history_clear">Bersihkan riwayat</string>
     <string name="accessibility_description">TransClip hanya mendengarkan perubahan clipboard agar bisa menyinkronkannya otomatis. Layanan ini tidak membaca isi layar.</string>
@@ -70,15 +70,15 @@
     <string name="nav_home">Beranda</string>
     <string name="nav_pairing">Pairing</string>
     <string name="nav_settings">Pengaturan</string>
-    <string name="home_not_paired_title">Belum ada grup</string>
+    <string name="home_not_paired_title">Belum Ada Grup</string>
     <string name="home_not_paired_body">Pasangkan perangkat ini dengan PC atau HP lain untuk mulai menyinkronkan clipboard dan file.</string>
     <string name="home_go_pairing">Buka Pairing</string>
-    <string name="status_waiting">Menunggu perangkat</string>
+    <string name="status_waiting">Menunggu Perangkat</string>
     <string name="status_auto_on">Salin otomatis aktif</string>
     <string name="status_auto_off">Salin otomatis mati</string>
     <string name="section_devices">Perangkat</string>
     <string name="section_activity">Aktivitas</string>
-    <string name="devices_empty_title">Belum ada perangkat lain</string>
+    <string name="devices_empty_title">Belum Ada Perangkat Lain</string>
     <string name="devices_empty_body">Ketuk untuk menambah perangkat.</string>
     <string name="state_online">Terhubung</string>
     <string name="state_connecting">Menghubungkan…</string>
@@ -97,7 +97,7 @@
     <string name="pairing_valid_for">Berlaku %1$d:%2$02d</string>
     <string name="pairing_security">Keamanan</string>
     <string name="rotate_hint">Kunci baru untuk seluruh grup.</string>
-    <string name="settings_device">Perangkat ini</string>
+    <string name="settings_device">Perangkat Ini</string>
     <string name="settings_name_desc">Nama yang terlihat di perangkat lain.</string>
     <string name="settings_sync">Sinkronisasi</string>
     <string name="settings_sync_text_desc">Teks yang disalin dikirim ke perangkat lain.</string>
@@ -105,7 +105,7 @@
     <string name="settings_receive_files_desc">Izinkan perangkat lain mengirim file ke sini.</string>
     <string name="settings_auto">Otomatis</string>
     <string name="settings_screenshots_desc">Screenshot baru dikirim sebagai gambar clipboard.</string>
-    <string name="settings_storage">Penyimpanan file</string>
+    <string name="settings_storage">Penyimpanan File</string>
     <string name="settings_bt">Cadangan Bluetooth</string>
     <string name="settings_bt_desc">Bila Wi-Fi putus, perangkat yang dicentang tersambung lewat Bluetooth. Perangkat harus sudah dipasangkan di pengaturan Bluetooth.</string>
     <string name="settings_system">Sistem</string>
@@ -117,6 +117,6 @@
     <string name="settings_version">Versi</string>
     <string name="badge_active">Aktif</string>
     <string name="pairing_copy">Salin kode</string>
-    <string name="home_add_device">Tambah perangkat</string>
+    <string name="home_add_device">Tambah Perangkat</string>
     <string name="home_not_paired_hint">Pasangkan untuk memulai</string>
 </resources>
