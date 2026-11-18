@@ -74,12 +74,20 @@ private sealed interface Outgoing {
  * Call [start] once. Events arrive on [events]; the last one is [LinkEvent.Closed].
  */
 class Link(
-    private val socket: Socket,
+    private val conn: RawConn,
     private val channel: SecureChannel,
     private val local: LocalInfo,
     private val cfg: LinkConfig,
     private val scope: CoroutineScope,
 ) {
+    constructor(
+        socket: Socket,
+        channel: SecureChannel,
+        local: LocalInfo,
+        cfg: LinkConfig,
+        scope: CoroutineScope,
+    ) : this(SocketConn(socket), channel, local, cfg, scope)
+
     val events = Channel<LinkEvent>(Channel.UNLIMITED)
     private val control = Channel<Outgoing>(64)
     private val data = Channel<Outgoing>(64)
@@ -89,10 +97,13 @@ class Link(
     @Volatile
     private var lastWrite = System.nanoTime()
 
+    @Volatile
+    private var lastRead = System.nanoTime()
+
     val isClosed: Boolean get() = finished.get()
 
     fun start() {
-        socket.soTimeout = cfg.deadAfterMs.toInt()
+        conn.setReadTimeout(cfg.deadAfterMs.toInt())
         jobs += scope.launch(Dispatchers.IO) { reader() }
         jobs += scope.launch(Dispatchers.IO) { writer() }
         jobs += scope.launch { pinger() }
@@ -122,7 +133,7 @@ class Link(
         if (!finished.compareAndSet(false, true)) return
         events.trySend(LinkEvent.Closed(reason))
         events.close()
-        runCatching { socket.close() }
+        runCatching { conn.close() }
         control.close()
         data.close()
         jobs.forEach { it.cancel() }
@@ -139,6 +150,7 @@ class Link(
         try {
             while (true) {
                 val frame = channel.input.readFrame()
+                lastRead = System.nanoTime()
                 when (val m = frame.message) {
                     is Message.Hello -> {
                         if (ready) continue
@@ -211,6 +223,11 @@ class Link(
         val step = (cfg.pingIntervalMs / 2).coerceAtLeast(10)
         while (!finished.get()) {
             delay(step)
+            // Streams without read time-outs (Bluetooth) are watched here: silence means dead.
+            if (conn.manualTimeout && (System.nanoTime() - lastRead) / 1_000_000 >= cfg.deadAfterMs) {
+                finish(CloseReason.Dead)
+                return
+            }
             val idleMs = (System.nanoTime() - lastWrite) / 1_000_000
             if (idleMs >= cfg.pingIntervalMs) control.trySend(Outgoing.Send(Message.Ping, ByteArray(0)))
         }
