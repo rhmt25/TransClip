@@ -13,6 +13,7 @@ fn second_instance_exits_and_files_are_created() {
     let dir = tempfile::tempdir().unwrap();
     let mut first = exe()
         .env("TRANSCLIP_DATA_DIR", dir.path())
+        .env("TRANSCLIP_NO_WINDOW", "1")
         .args(["--hold-secs", "20"])
         .spawn()
         .unwrap();
@@ -30,6 +31,7 @@ fn second_instance_exits_and_files_are_created() {
     let begin = Instant::now();
     let status = exe()
         .env("TRANSCLIP_DATA_DIR", dir.path())
+        .env("TRANSCLIP_NO_WINDOW", "1")
         .status()
         .unwrap();
     assert!(status.success());
@@ -65,6 +67,7 @@ fn second_instance_exits_and_files_are_created() {
     // `--quit` stops the running daemon cleanly.
     let quit = exe()
         .env("TRANSCLIP_DATA_DIR", dir.path())
+        .env("TRANSCLIP_NO_WINDOW", "1")
         .arg("--quit")
         .status()
         .unwrap();

@@ -265,13 +265,13 @@ Baca `CLAUDE.md` dulu. Spesifikasi: `docs/PLAN.md` (arsitektur) dan `docs/PROTOC
 
 ## P4 — Pairing & Pengaturan
 
-### [ ] P4-01 · Windows: proses Settings egui (kerangka)
+### [~] P4-01 · Windows: proses Settings egui (kerangka)
 * **Dep:** P2-08
 * **File:** `app/src/settings/{mod.rs,app.rs,tabs/*.rs}`
 * **Lakukan:** `transclip.exe --settings` membuka jendela eframe yang terhubung ke pipe; bila daemon tidak jalan → tawarkan menjalankannya. Enam tab PLAN §5.6 (isi bertahap), skala DPI benar, font sistem (Segoe UI) dengan fallback emoji.
 * **Selesai jika:** **[MANUAL]** jendela terbuka dari tray, menutupnya mengakhiri prosesnya (cek Task Manager), RAM daemon tidak naik.
 
-### [ ] P4-02 · Windows: alur pairing
+### [~] P4-02 · Windows: alur pairing
 * **Dep:** P4-01
 * **Lakukan:** *Buat grup baru*, QR (`qrcode` → tekstur egui) dengan hitung mundur 2 menit, *Salin kode*, *Gabung dengan kode*, argumen `--pair`. Bergabung → simpan GK → engine restart koneksi.
 * **Selesai jika:** dua instans Windows (atau Windows + test peer) bergabung via kode dan terhubung; QR terbaca oleh aplikasi scanner umum.
@@ -324,7 +324,7 @@ Baca `CLAUDE.md` dulu. Spesifikasi: `docs/PLAN.md` (arsitektur) dan `docs/PROTOC
 * **Lakukan:** `transclip.exe --send <paths…>` → kirim ke daemon via pipe → popup pemilih perangkat (egui kecil atau menu radial di tengah layar); buat/hapus shortcut `SendTo` dari setting; menu tray *Kirim file…*.
 * **Selesai jika:** **[MANUAL]** klik kanan file → Kirim ke → TransClip → pilih perangkat → terkirim.
 
-### [~] P5-06 · Windows: penerimaan & notifikasi
+### [x] P5-06 · Windows: penerimaan & notifikasi
 * **Dep:** P5-01, P2-06
 * **Lakukan:** `IncomingStore` Windows (default `FOLDERID_Downloads\TransClip`, membaca `download_dir` dari config, long path `\\?\`), notifikasi saat batch selesai (klik → buka folder di Explorer dengan file terpilih), progres di tooltip tray.
 * **Selesai jika:** **[MANUAL]** kirim folder dari HP → tiba di `Downloads\TransClip\<folder>` dengan struktur utuh.

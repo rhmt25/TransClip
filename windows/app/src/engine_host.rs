@@ -61,19 +61,56 @@ struct Hub {
     transfers: Mutex<Option<TransferManager>>,
     online: Mutex<Vec<DeviceId>>,
     commands: mpsc::UnboundedSender<ToEngine>,
-    config: Config,
-    /// Configured receive folder (`""` = default); changeable at runtime.
-    download_dir: Mutex<String>,
+    /// Current settings; changed at runtime through IPC.
+    config: Mutex<Config>,
+    /// The settings window process, while it is open.
+    settings_child: Mutex<Option<std::process::Child>>,
     paths: Paths,
     device_id: DeviceId,
 }
 
 impl Hub {
-    fn download_dir(&self) -> String {
-        self.download_dir
+    fn cfg(&self) -> Config {
+        self.config
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
             .clone()
+    }
+
+    fn download_dir(&self) -> String {
+        self.cfg().download_dir
+    }
+
+    /// Persist and publish a new configuration.
+    fn store_config(&self, cfg: Config) -> Result<(), String> {
+        cfg.save(&self.paths.config_file())
+            .map_err(|e| e.to_string())?;
+        *self.config.lock().unwrap_or_else(PoisonError::into_inner) = cfg;
+        Ok(())
+    }
+
+    /// Open the settings window unless one is already open.
+    fn show_settings(&self) {
+        tracing::info!("ShowSettings requested");
+        if std::env::var_os("TRANSCLIP_NO_WINDOW").is_some() {
+            return;
+        }
+        let mut child = self
+            .settings_child
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+        if child
+            .as_mut()
+            .is_some_and(|c| matches!(c.try_wait(), Ok(None)))
+        {
+            return;
+        }
+        *child = std::env::current_exe().ok().and_then(|exe| {
+            std::process::Command::new(exe)
+                .arg("--settings")
+                .spawn()
+                .ok()
+        });
     }
 
     /// Change the status, then tell the tray and IPC clients.
@@ -124,7 +161,7 @@ impl Hub {
 
     /// Build a fresh pairing URI for the current group.
     fn pairing_uri(&self, gk: GroupKey) -> String {
-        let port = self.config.port;
+        let port = self.cfg().port;
         PairingInfo {
             gk,
             group_name: "TransClip".into(),
@@ -160,7 +197,7 @@ fn handler(hub: Arc<Hub>) -> Handler {
         Box::pin(async move {
             match method.as_str() {
                 "get_status" => Ok(status_json(&hub.snapshot())),
-                "get_config" => serde_json::to_value(&hub.config).map_err(|e| e.to_string()),
+                "get_config" => serde_json::to_value(hub.cfg()).map_err(|e| e.to_string()),
                 "list_peers" => Ok(hub.peers_json()),
                 "set_paused" => {
                     let paused = params
@@ -181,19 +218,50 @@ fn handler(hub: Arc<Hub>) -> Handler {
                     if !dir.is_empty() {
                         crate::target_dir::validate(Path::new(&dir))?;
                     }
-                    let mut cfg = Config::load(&hub.paths.config_file());
-                    cfg.download_dir.clone_from(&dir);
-                    cfg.save(&hub.paths.config_file())
-                        .map_err(|e| e.to_string())?;
-                    *hub.download_dir
-                        .lock()
-                        .unwrap_or_else(PoisonError::into_inner) = dir;
+                    let mut cfg = hub.cfg();
+                    cfg.download_dir = dir;
+                    hub.store_config(cfg)?;
                     let _ = hub.commands.send(ToEngine::Reload);
                     Ok(json!({ "dir": crate::target_dir::resolve(&hub.download_dir()).dir }))
                 }
                 "show_settings" => {
                     let _ = hub.commands.send(ToEngine::ShowSettings);
                     Ok(Value::Null)
+                }
+                "set_config" => {
+                    // Partial update: only the keys present change. The folder has its own method.
+                    let Value::Object(patch) = params else {
+                        return Err("params must be an object".into());
+                    };
+                    let old = hub.cfg();
+                    let mut merged = serde_json::to_value(&old).map_err(|e| e.to_string())?;
+                    if let Value::Object(map) = &mut merged {
+                        for (k, v) in patch {
+                            if k != "download_dir" {
+                                map.insert(k, v);
+                            }
+                        }
+                    }
+                    let mut cfg: Config =
+                        serde_json::from_value(merged).map_err(|e| e.to_string())?;
+                    cfg.validate();
+                    hub.store_config(cfg.clone())?;
+                    if cfg.autostart != old.autostart
+                        && std::env::var_os(crate::paths::DATA_DIR_ENV).is_none()
+                    {
+                        crate::autostart::apply(cfg.autostart).map_err(|e| e.to_string())?;
+                    }
+                    if cfg.paused != old.paused {
+                        let _ = hub.commands.send(ToEngine::SetPaused(cfg.paused));
+                    }
+                    if cfg.device_name != old.device_name
+                        || cfg.port != old.port
+                        || cfg.receive_files != old.receive_files
+                        || cfg.max_incoming_file_bytes != old.max_incoming_file_bytes
+                    {
+                        let _ = hub.commands.send(ToEngine::Reload);
+                    }
+                    serde_json::to_value(cfg).map_err(|e| e.to_string())
                 }
                 "open_log_dir" => {
                     open_folder(&hub.paths.log_dir());
@@ -309,7 +377,7 @@ async fn start_engine(
     gk: GroupKey,
     paused: &Arc<AtomicBool>,
 ) -> Option<Running> {
-    let config = &hub.config;
+    let config = &hub.cfg();
     let device_id = hub.device_id;
     let gid = gk.group_id();
     let (seen_tx, seen_rx) = mpsc::channel(64);
@@ -482,8 +550,8 @@ pub async fn run(input: HostInput, ui: UiHandle, mut commands: mpsc::UnboundedRe
         transfers: Mutex::new(None),
         online: Mutex::new(Vec::new()),
         commands: command_tx,
-        config: config.clone(),
-        download_dir: Mutex::new(config.download_dir.clone()),
+        config: Mutex::new(config.clone()),
+        settings_child: Mutex::new(None),
         paths: paths.clone(),
         device_id,
     });
@@ -535,8 +603,8 @@ pub async fn run(input: HostInput, ui: UiHandle, mut commands: mpsc::UnboundedRe
             }
             ToEngine::LocalClip(clip) => {
                 let allowed = match &clip {
-                    Clip::Text(_) => config.sync_text,
-                    Clip::Image { .. } => config.sync_images,
+                    Clip::Text(_) => hub.cfg().sync_text,
+                    Clip::Image { .. } => hub.cfg().sync_images,
                 };
                 if let (Some(r), true, false) = (&running, allowed, paused.load(Ordering::Relaxed))
                 {
@@ -548,13 +616,14 @@ pub async fn run(input: HostInput, ui: UiHandle, mut commands: mpsc::UnboundedRe
             ToEngine::SetPaused(p) => {
                 paused.store(p, Ordering::Relaxed);
                 hub.update(|s| s.paused = p);
-                let mut cfg = config.clone();
+                let mut cfg = hub.cfg();
                 cfg.paused = p;
-                if let Err(e) = cfg.save(&paths.config_file()) {
+                if let Err(e) = hub.store_config(cfg) {
                     tracing::warn!(error = %e, "cannot save config");
                 }
             }
-            ToEngine::ShowSettings | ToEngine::Pair | ToEngine::SendFiles => {
+            ToEngine::ShowSettings | ToEngine::Pair => hub.show_settings(),
+            ToEngine::SendFiles => {
                 tracing::info!(?cmd, "UI request (handled in a later task)");
             }
         }

@@ -11,6 +11,7 @@ mod ipc;
 mod logging;
 mod paths;
 mod secrets;
+mod settings;
 mod single_instance;
 mod strings;
 mod target_dir;
@@ -101,8 +102,7 @@ fn run() -> Result<i32> {
             ));
         }
         cli::Mode::Settings => {
-            // The settings window arrives with task P4-01; until then ask the daemon.
-            return Ok(ask_running_daemon("show_settings", serde_json::Value::Null));
+            return Ok(settings::run());
         }
     }
     let _guard = match single_instance::acquire()? {
