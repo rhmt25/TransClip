@@ -55,3 +55,8 @@ HP: *Scan QR* (izinkan kamera) → arahkan ke QR di jendela Settings PC (tab Pai
 * **Layar transfer Android:** kirim file besar dari PC; progres bergerak, *Batal* menghentikan transfer.
 * **Sleep/resume (P7-05):** tidurkan PC 1 menit, bangunkan → HP kembali online < 15 detik.
 * **Rate limit:** kirim > 20 salinan dalam 10 detik dari satu perangkat → sisanya ditolak (`busy`), tidak ada crash.
+
+## T08 — Sinkron otomatis Android (P3-06)
+* **Teks:** aktifkan layanan Aksesibilitas TransClip → salin teks di aplikasi mana pun → muncul di PC tanpa menekan tombol (diuji 2026-11-18 di Redmi 22021211RG, lulus).
+* **Screenshot:** Pengaturan → *Kirim screenshot otomatis* (izin foto) → ambil screenshot → tertempel sebagai gambar di PC (lulus 2026-11-18).
+* **Catatan:** banyak ROM tidak menaruh screenshot atau gambar "salin" di clipboard sistem; saran gambar di Gboard bukan isi clipboard sistem. Gambar yang benar-benar disalin ke clipboard (mis. Chrome *Salin gambar*) ditangkap lewat layanan Aksesibilitas bila aplikasinya mengisi clipboard sistem.

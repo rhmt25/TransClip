@@ -248,7 +248,7 @@ Baca `CLAUDE.md` dulu. Spesifikasi: `docs/PLAN.md` (arsitektur) dan `docs/PROTOC
 * **Lakukan:** Activity transparan (theme `Translucent.NoTitleBar`, `excludeFromRecents`, `noHistory`, `taskAffinity=""`) membaca di `onWindowFocusChanged(true)`; cek `EXTRA_IS_SENSITIVE` & penanda echo; kirim via service; toast singkat "Terkirim ke n perangkat". Tile & aksi notifikasi memanggilnya (Android 14+: gunakan `PendingIntent` untuk `startActivityAndCollapse`).
 * **Selesai jika:** **[MANUAL]** salin teks di HP → tekan tile → muncul di `Win + V` PC; gambar yang disalin dari galeri juga terkirim.
 
-### [ ] P3-06 · Auto-capture Accessibility (opsional, sesuai S2)
+### [~] P3-06 · Auto-capture Accessibility (opsional, sesuai S2)
 * **Dep:** P3-05, P0-10
 * **File:** `clip/CaptureAccessibilityService.kt`, `res/xml/accessibility_config.xml`
 * **Lakukan:** implementasi heuristik final dari S2; rate-limit; toggle di Settings (default mati); layar penjelasan sebelum membuka setelan Accessibility.

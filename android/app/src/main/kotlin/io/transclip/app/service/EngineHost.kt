@@ -56,6 +56,7 @@ class EngineHost(private val context: Context) {
     private var beacon: BeaconService? = null
     private var nsd: NsdDiscovery? = null
     private var lock: WifiManager.MulticastLock? = null
+    private var screenshots: io.transclip.app.clip.ScreenshotWatcher? = null
     private var allowText = true
     private var allowImages = true
 
@@ -115,6 +116,9 @@ class EngineHost(private val context: Context) {
                 val allowed = if (clip.clip is Clip.Text) cfg.syncText else cfg.syncImages
                 if (allowed) writer.apply(clip)
             }
+        }
+        if (cfg.autoScreenshots && hasPhotoPermission()) {
+            screenshots = io.transclip.app.clip.ScreenshotWatcher(context, s) { submit(it) }.also { it.start() }
         }
         allowText = cfg.syncText
         allowImages = cfg.syncImages
@@ -185,6 +189,15 @@ class EngineHost(private val context: Context) {
         return true
     }
 
+    private fun hasPhotoPermission(): Boolean {
+        val perm = if (android.os.Build.VERSION.SDK_INT >= 33) {
+            android.Manifest.permission.READ_MEDIA_IMAGES
+        } else {
+            android.Manifest.permission.READ_EXTERNAL_STORAGE
+        }
+        return context.checkSelfPermission(perm) == android.content.pm.PackageManager.PERMISSION_GRANTED
+    }
+
     /** Stop and start again from a scope that outlives the engine's own. */
     private fun restartDetached() {
         CoroutineScope(SupervisorJob() + Dispatchers.Default).launch {
@@ -212,6 +225,8 @@ class EngineHost(private val context: Context) {
     }
 
     suspend fun stop() {
+        screenshots?.stop()
+        screenshots = null
         beacon?.stop()
         nsd?.stop()
         mgr?.stop()

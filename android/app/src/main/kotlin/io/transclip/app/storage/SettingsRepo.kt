@@ -23,6 +23,8 @@ data class Settings(
     val receiveFiles: Boolean = true,
     val autoStart: Boolean = true,
     val autoCapture: Boolean = false,
+    /** Send new screenshots to the other devices as clipboard images. */
+    val autoScreenshots: Boolean = false,
     /** SAF tree URI of the receive folder; empty means `Download/TransClip`. */
     val downloadTreeUri: String = "",
     val onboardingDone: Boolean = false,
@@ -52,6 +54,7 @@ class SettingsRepo(private val store: DataStore<Preferences>) {
             receiveFiles = p[RECEIVE_FILES] ?: true,
             autoStart = p[AUTO_START] ?: true,
             autoCapture = p[AUTO_CAPTURE] ?: false,
+            autoScreenshots = p[AUTO_SCREENSHOTS] ?: false,
             downloadTreeUri = p[DOWNLOAD_URI].orEmpty(),
             onboardingDone = p[ONBOARDING] ?: false,
         )
@@ -69,6 +72,7 @@ class SettingsRepo(private val store: DataStore<Preferences>) {
             p[RECEIVE_FILES] = next.receiveFiles
             p[AUTO_START] = next.autoStart
             p[AUTO_CAPTURE] = next.autoCapture
+            p[AUTO_SCREENSHOTS] = next.autoScreenshots
             p[DOWNLOAD_URI] = next.downloadTreeUri
             p[ONBOARDING] = next.onboardingDone
         }
@@ -82,6 +86,7 @@ class SettingsRepo(private val store: DataStore<Preferences>) {
         val RECEIVE_FILES = booleanPreferencesKey("receive_files")
         val AUTO_START = booleanPreferencesKey("auto_start")
         val AUTO_CAPTURE = booleanPreferencesKey("auto_capture")
+        val AUTO_SCREENSHOTS = booleanPreferencesKey("auto_screenshots")
         val DOWNLOAD_URI = stringPreferencesKey("download_tree_uri")
         val ONBOARDING = booleanPreferencesKey("onboarding_done")
     }

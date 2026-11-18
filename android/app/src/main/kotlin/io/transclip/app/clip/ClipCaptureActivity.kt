@@ -30,6 +30,7 @@ private const val TAG = "TransClip"
  */
 class ClipCaptureActivity : Activity() {
     private var handled = false
+    private val auto get() = intent.getBooleanExtra(EXTRA_AUTO, false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -41,6 +42,7 @@ class ClipCaptureActivity : Activity() {
         handled = true
         val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         val data = cm.primaryClip
+        Log.d(TAG, "capture: items=${data?.itemCount} mimes=${(0 until (data?.description?.mimeTypeCount ?: 0)).map { data?.description?.getMimeType(it) }} uri=${data?.getItemAt(0)?.uri != null} auto=$auto")
         val outcome = describe(data)
         if (outcome != null) {
             // Copy what we need now; the read must finish before the activity closes.
@@ -57,6 +59,7 @@ class ClipCaptureActivity : Activity() {
                         null -> R.string.capture_not_running
                     }
                 }
+                if (auto) return@launch
                 launch(Dispatchers.Main) {
                     val online = AppState.peers.value.count { it.state == PeerState.ONLINE }
                     Toast.makeText(
@@ -67,9 +70,10 @@ class ClipCaptureActivity : Activity() {
                 }
             }
         } else {
-            Toast.makeText(this, R.string.capture_nothing, Toast.LENGTH_SHORT).show()
+            if (!auto) Toast.makeText(this, R.string.capture_nothing, Toast.LENGTH_SHORT).show()
         }
         finish()
+        if (auto) overridePendingTransition(0, 0)
     }
 
     /** Decide what to send. Returns a reader to run off the main thread, or null to skip. */
@@ -90,7 +94,9 @@ class ClipCaptureActivity : Activity() {
             return { ctx ->
                 runCatching {
                     ctx.contentResolver.openInputStream(uri)?.use { it.readBytes() }
-                }.getOrNull()?.takeIf { it.size <= MAX_IMAGE }?.let { bytes ->
+                }.onFailure { Log.w(TAG, "cannot read image: ${it.javaClass.simpleName}") }.getOrNull()
+                    ?.also { Log.d(TAG, "image bytes=${it.size} max=$MAX_IMAGE") }
+                    ?.takeIf { it.size <= MAX_IMAGE }?.let { bytes ->
                     // Width and height are informational; the receiver decodes the real image.
                     val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
                     android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
@@ -101,5 +107,10 @@ class ClipCaptureActivity : Activity() {
         val text = item.text?.toString()
         if (text.isNullOrEmpty()) return null
         return { Clip.Text(text) }
+    }
+
+    companion object {
+        /** Set by the auto-capture service so the screen stays silent. */
+        const val EXTRA_AUTO = "io.transclip.extra.AUTO"
     }
 }

@@ -198,6 +198,15 @@ class MainActivity : ComponentActivity() {
                 dismissButton = { TextButton(onClick = { pendingJoin = null }) { Text(getString(R.string.cancel)) } },
             )
         }
+        val askPhotos = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (granted) {
+                scope.launch {
+                    settingsRepo.update { it.copy(autoScreenshots = true) }
+                    app.engine.stop()
+                    app.engine.start()
+                }
+            }
+        }
         val askNotifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
             SyncService.start(this)
         }
@@ -279,7 +288,39 @@ class MainActivity : ComponentActivity() {
                     SettingSwitch(getString(R.string.settings_sync_text), c.syncText) { v -> apply { it.copy(syncText = v) } }
                     SettingSwitch(getString(R.string.settings_sync_images), c.syncImages) { v -> apply { it.copy(syncImages = v) } }
                     SettingSwitch(getString(R.string.settings_receive_files), c.receiveFiles) { v -> apply { it.copy(receiveFiles = v) } }
+                    SettingSwitch(getString(R.string.settings_screenshots), c.autoScreenshots) { v ->
+                        if (v) {
+                            val perm = if (android.os.Build.VERSION.SDK_INT >= 33) {
+                                android.Manifest.permission.READ_MEDIA_IMAGES
+                            } else {
+                                android.Manifest.permission.READ_EXTERNAL_STORAGE
+                            }
+                            askPhotos.launch(perm)
+                        } else {
+                            apply { it.copy(autoScreenshots = false) }
+                        }
+                    }
                     SettingSwitch(getString(R.string.settings_autostart), c.autoStart) { v -> apply { it.copy(autoStart = v) } }
+                }
+            }
+            item {
+                val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+                var autoOn by remember { mutableStateOf(io.transclip.app.clip.ClipAccessibilityService.isEnabled(this@MainActivity)) }
+                androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
+                    val obs = androidx.lifecycle.LifecycleEventObserver { _, e ->
+                        if (e == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                            autoOn = io.transclip.app.clip.ClipAccessibilityService.isEnabled(this@MainActivity)
+                        }
+                    }
+                    lifecycleOwner.lifecycle.addObserver(obs)
+                    onDispose { lifecycleOwner.lifecycle.removeObserver(obs) }
+                }
+                Text(getString(R.string.auto_capture_title), style = MaterialTheme.typography.titleMedium)
+                Text(getString(if (autoOn) R.string.auto_capture_on else R.string.auto_capture_off), style = MaterialTheme.typography.bodySmall)
+                if (!autoOn) {
+                    OutlinedButton(onClick = {
+                        startActivity(android.content.Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                    }) { Text(getString(R.string.auto_capture_open)) }
                 }
             }
             item {

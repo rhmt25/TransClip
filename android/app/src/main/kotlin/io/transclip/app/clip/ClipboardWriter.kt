@@ -18,6 +18,10 @@ import kotlinx.coroutines.runBlocking
 /** Marker stored in the clip description so our own writes are not captured again. */
 const val ORIGIN_KEY = "io.transclip.origin"
 
+/** When we last wrote the clipboard ourselves; the auto-capture service ignores changes right after. */
+@Volatile
+var lastOwnWriteMs: Long = 0
+
 /** True when the clip was written by TransClip. */
 fun ClipDescription?.isTransClipOrigin(): Boolean = this?.extras?.containsKey(ORIGIN_KEY) == true
 
@@ -39,6 +43,7 @@ class ClipboardWriter(
         // The clipboard must be touched from the main thread; apply() runs on an I/O thread.
         runBlocking(Dispatchers.Main) {
             val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            lastOwnWriteMs = System.currentTimeMillis()
             cm.setPrimaryClip(data)
         }
     }
