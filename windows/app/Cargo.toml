@@ -16,9 +16,11 @@ anyhow = "1.0.104"
 eframe = { version = "0.37.0", default-features = false, features = ["default_fonts", "glow"] }
 engine = { version = "1.0.0", path = "../crates/engine" }
 image = { version = "0.25.10", default-features = false, features = ["png", "bmp", "jpeg"] }
+nokhwa = { version = "0.10.11", default-features = false, features = ["input-msmf"] }
 proto = { version = "1.0.0", path = "../crates/proto" }
 qrcode = { version = "0.14.1", default-features = false }
 rfd = "0.18.0"
+rqrr = "0.11.0"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
 thiserror = "2.0.21"

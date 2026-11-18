@@ -69,8 +69,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.journeyapps.barcodescanner.ScanContract
-import com.journeyapps.barcodescanner.ScanOptions
 import io.transclip.app.clip.ClipAccessibilityService
 import io.transclip.app.clip.ClipCaptureActivity
 import io.transclip.app.clip.ORIGIN_KEY
@@ -236,12 +234,13 @@ class MainActivity : ComponentActivity() {
         val requestJoin: (String) -> Unit = { text ->
             scope.launch { if (app.secrets.groupKey() != null) pendingJoin = text else doJoin(text) }
         }
-        val scan = rememberLauncherForActivityResult(ScanContract()) { result ->
-            result.contents?.let {
-                code = it
-                requestJoin(it)
-            }
+        // The scanner lives inside the pairing sheet (no full-screen camera activity), so it follows
+        // the rotation of the screen. Scan mode and the camera permission are kept across rotations.
+        var scanning by rememberSaveable { mutableStateOf(false) }
+        var cameraOk by remember {
+            mutableStateOf(ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED)
         }
+        val askCamera = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted -> cameraOk = granted }
         pendingJoin?.let { text ->
             AlertDialog(
                 onDismissRequest = { pendingJoin = null },
@@ -327,16 +326,18 @@ class MainActivity : ComponentActivity() {
         )
         val pairing = PairingActions(
             scan = {
-                scan.launch(
-                    ScanOptions()
-                        .setDesiredBarcodeFormats(ScanOptions.QR_CODE)
-                        .setPrompt(getString(R.string.pairing_scan_prompt))
-                        .setBeepEnabled(false)
-                        .setOrientationLocked(false),
-                )
+                scanning = true
+                if (!cameraOk) askCamera.launch(Manifest.permission.CAMERA)
+            },
+            askCamera = { askCamera.launch(Manifest.permission.CAMERA) },
+            onScanned = { text ->
+                scanning = false
+                code = text
+                requestJoin(text)
             },
             join = requestJoin,
             showCode = {
+                scanning = false
                 scope.launch {
                     val gk = app.secrets.groupKey() ?: GroupKey.generate().also { app.secrets.setGroupKey(it) }
                     val expires = System.currentTimeMillis() / 1000 + 120
@@ -489,7 +490,7 @@ class MainActivity : ComponentActivity() {
                     onDismissRequest = { pairingOpen = false },
                     sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
                     containerColor = t.canvas,
-                ) { PairingContent(paired, code, invite, inviteExpiresAt, pairing) }
+                ) { PairingContent(paired, code, invite, inviteExpiresAt, scanning, cameraOk, pairing) }
             }
         }
     }

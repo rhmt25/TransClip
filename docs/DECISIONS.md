@@ -66,3 +66,7 @@ PLAN §5.4 menyebut `WH_MOUSE_LL`/`WH_KEYBOARD_LL`. Diganti dengan timer 40 ms d
 
 ## D-015 — Failover Bluetooth lebih cepat (2026-11-18)
 Uji nyata (PC + POCO F4, Wi-Fi HP dimatikan) memakan 97 detik sebelum Bluetooth aktif. Perbaikan: TCP keep-alive 4 s + 1 s pada semua socket LAN (peer yang hilang terdeteksi ±15 s, bukan menunggu time-out link 90 s); Bluetooth dibuka setelah LAN mati > **5 s** (sebelumnya 10 s); percobaan ulang setelah 3 s; perangkat Bluetooth yang berhasil terakhir dicoba lebih dulu. Hasil: 13 detik, dengan teks terkirim lewat Bluetooth, dan kembali ke LAN dalam 10 detik setelah Wi-Fi menyala.
+
+## D-016 — Pemindai QR dengan kamera di PC dan di dalam lembar Android (2026-11-18)
+- **Windows:** dependensi baru `nokhwa` (Media Foundation, hanya fitur `input-msmf`) untuk membaca webcam dan `rqrr` untuk membaca QR. Dipilih karena murni Rust tanpa DLL tambahan. Hanya kode pairing yang berawalan `transclip://pair` yang diterima; kamera berjalan hanya saat mode *Pindai QR* aktif di panel Tambah Perangkat dan berhenti saat mode diganti atau jendela ditutup.
+- **Android:** pemindai tidak lagi memakai `CaptureActivity` layar penuh (yang memaksa landscape) tetapi `DecoratedBarcodeView` (zxing-android-embedded, sudah menjadi dependensi) yang disematkan di lembar Tambah Perangkat pada slot persegi 1:1 yang sama dengan QR, sehingga mengikuti rotasi layar. Kamera hanya aktif saat layar *resumed*.

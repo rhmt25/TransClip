@@ -287,28 +287,62 @@ class PairingActions(
     val copyCode: () -> Unit,
     val rotate: () -> Unit,
     val onCodeChange: (String) -> Unit,
+    val askCamera: () -> Unit,
+    val onScanned: (String) -> Unit,
 )
 
+/**
+ * "Tambah Perangkat" sheet. The QR code and the camera scanner share one square slot, so the layout
+ * is identical in both modes and follows the screen rotation.
+ */
 @Composable
 fun PairingContent(
     paired: Boolean,
     code: String,
     invite: String,
     inviteExpiresAtMs: Long,
+    scanning: Boolean,
+    cameraOk: Boolean,
     actions: PairingActions,
 ) {
     val t = tokens
+    val slotShape = RoundedCornerShape(8.dp)
     Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Text(stringResource(R.string.home_add_device), style = MaterialTheme.typography.titleLarge)
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            PrimaryButton(stringResource(R.string.pairing_scan), Modifier.weight(1f), onClick = actions.scan)
-            SecondaryButton(
-                stringResource(if (invite.isEmpty()) R.string.pairing_show_code else R.string.pairing_refresh_code),
-                Modifier.weight(1f),
-                onClick = actions.showCode,
-            )
+            val scanLabel = stringResource(R.string.pairing_scan)
+            val showLabel = stringResource(if (invite.isEmpty()) R.string.pairing_show_code else R.string.pairing_refresh_code)
+            if (scanning) {
+                PrimaryButton(scanLabel, Modifier.weight(1f), onClick = actions.scan)
+                SecondaryButton(showLabel, Modifier.weight(1f), onClick = actions.showCode)
+            } else {
+                SecondaryButton(scanLabel, Modifier.weight(1f), onClick = actions.scan)
+                PrimaryButton(showLabel, Modifier.weight(1f), onClick = actions.showCode)
+            }
         }
-        if (invite.isNotEmpty()) {
+        if (scanning) {
+            // Same slot as the QR code: a 232 dp square inside 12 dp of padding.
+            Box(
+                Modifier.align(Alignment.CenterHorizontally).clip(slotShape).background(t.subtle)
+                    .border(1.dp, t.border, slotShape).padding(12.dp),
+            ) {
+                if (cameraOk) {
+                    ScannerBox(Modifier.size(232.dp).clip(RoundedCornerShape(4.dp)), actions.onScanned)
+                } else {
+                    Column(Modifier.size(232.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(stringResource(R.string.camera_needed), style = MaterialTheme.typography.bodyMedium, color = t.text2)
+                        Spacer(Modifier.height(12.dp))
+                        PrimaryButton(stringResource(R.string.camera_allow), onClick = actions.askCamera)
+                    }
+                }
+            }
+            Text(
+                stringResource(R.string.pairing_scan_hint),
+                Modifier.align(Alignment.CenterHorizontally),
+                style = MaterialTheme.typography.bodySmall,
+                color = t.text2,
+            )
+        } else if (invite.isNotEmpty()) {
             var left by remember(inviteExpiresAtMs) { mutableStateOf(((inviteExpiresAtMs - System.currentTimeMillis()) / 1000).coerceAtLeast(0)) }
             LaunchedEffect(inviteExpiresAtMs) {
                 while (left > 0) {
@@ -319,8 +353,8 @@ fun PairingContent(
             if (left > 0) {
                 // A QR code needs a light quiet zone, so it sits on white in both themes.
                 Box(
-                    Modifier.align(Alignment.CenterHorizontally).clip(RoundedCornerShape(8.dp)).background(Color.White)
-                        .border(1.dp, t.border, RoundedCornerShape(8.dp)).padding(12.dp),
+                    Modifier.align(Alignment.CenterHorizontally).clip(slotShape).background(Color.White)
+                        .border(1.dp, t.border, slotShape).padding(12.dp),
                 ) {
                     qrBitmap(invite)?.let { Image(it.asImageBitmap(), stringResource(R.string.pairing_qr_description), Modifier.size(232.dp)) }
                 }

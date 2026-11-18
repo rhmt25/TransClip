@@ -296,6 +296,10 @@ struct SettingsApp {
     last_poll: Option<Instant>,
     send_to: bool,
     start_menu: bool,
+    /// Camera scanner for pairing (shares the square slot with the QR code).
+    scanner: Option<crate::qrscan::Scanner>,
+    scan_texture: Option<egui::TextureHandle>,
+    scan_error: Option<String>,
 }
 
 impl SettingsApp {
@@ -320,6 +324,9 @@ impl SettingsApp {
             last_poll: None,
             send_to: crate::sendto::is_enabled(),
             start_menu: crate::sendto::start_menu_enabled(),
+            scanner: None,
+            scan_texture: None,
+            scan_error: None,
         };
         app.poll(true);
         app
@@ -418,6 +425,54 @@ impl SettingsApp {
                 self.paired = true;
             }
             Err(e) => self.error(format!("Gagal membuat kode: {e}")),
+        }
+    }
+
+    fn start_scan(&mut self, ctx: &egui::Context) {
+        let wake = ctx.clone();
+        self.scan_error = None;
+        self.scan_texture = None;
+        self.scanner = Some(crate::qrscan::Scanner::start(move || {
+            wake.request_repaint()
+        }));
+    }
+
+    fn stop_scan(&mut self) {
+        self.scanner = None;
+        self.scan_texture = None;
+    }
+
+    /// Apply what the camera thread reported: a new preview, a pairing code, or a failure.
+    fn pump_scan(&mut self, ctx: &egui::Context) {
+        let Some(scanner) = &self.scanner else { return };
+        let mut found = None;
+        let mut failed = None;
+        for event in scanner.poll() {
+            match event {
+                crate::qrscan::ScanEvent::Frame { side, rgba } => {
+                    let image = egui::ColorImage::from_rgba_unmultiplied([side, side], &rgba);
+                    match &mut self.scan_texture {
+                        Some(tex) => tex.set(image, egui::TextureOptions::LINEAR),
+                        None => {
+                            self.scan_texture =
+                                Some(ctx.load_texture("scan", image, egui::TextureOptions::LINEAR));
+                        }
+                    }
+                }
+                crate::qrscan::ScanEvent::Found(uri) => found = Some(uri),
+                crate::qrscan::ScanEvent::Failed(message) => failed = Some(message),
+            }
+        }
+        if let Some(message) = failed {
+            self.stop_scan();
+            self.scan_error = Some(message);
+        }
+        if let Some(uri) = found {
+            self.stop_scan();
+            match self.backend.call("join_group", json!({ "uri": uri })) {
+                Ok(_) => self.info("Berhasil bergabung."),
+                Err(e) => self.error(format!("Gagal bergabung: {e}")),
+            }
         }
     }
 
@@ -702,6 +757,7 @@ impl SettingsApp {
 
     fn devices_right(&mut self, ui: &mut egui::Ui, p: &Palette) {
         let ctx = ui.ctx().clone();
+        self.pump_scan(&ctx);
         // The code is made when the page opens and renewed when it runs out.
         let stale = self
             .pairing
@@ -719,7 +775,58 @@ impl SettingsApp {
                 }
                 return;
             }
-            if let Some(pairing) = &self.pairing {
+            // QR code and camera scanner share one square slot, so the layout is the same in both.
+            let scanning = self.scanner.is_some() || self.scan_error.is_some();
+            let (mut show_qr, mut scan) = (false, false);
+            ui.horizontal(|ui| {
+                if scanning {
+                    show_qr = theme::secondary_button(ui, p, "Tampilkan QR").clicked();
+                    scan = theme::primary_button(ui, p, "Pindai QR").clicked();
+                } else {
+                    show_qr = theme::primary_button(ui, p, "Tampilkan QR").clicked();
+                    scan = theme::secondary_button(ui, p, "Pindai QR").clicked();
+                }
+            });
+            if show_qr {
+                self.stop_scan();
+                self.scan_error = None;
+            }
+            if scan && self.scanner.is_none() {
+                self.start_scan(&ctx);
+            }
+            ui.add_space(8.0);
+            if scanning {
+                ui.vertical_centered(|ui| {
+                    egui::Frame::NONE
+                        .fill(p.subtle)
+                        .stroke(egui::Stroke::new(1.0, p.border))
+                        .corner_radius(CornerRadius::same(8))
+                        .inner_margin(6.0)
+                        .show(ui, |ui| {
+                            let slot = Vec2::splat(212.0);
+                            if let Some(tex) = &self.scan_texture {
+                                ui.add(egui::Image::new(tex).fit_to_exact_size(slot));
+                            } else {
+                                ui.allocate_ui_with_layout(
+                                    slot,
+                                    Layout::centered_and_justified(egui::Direction::TopDown),
+                                    |ui| {
+                                        let text =
+                                            self.scan_error.as_deref().unwrap_or("Membuka kamera…");
+                                        ui.add(egui::Label::new(theme::secondary(text, p)).wrap());
+                                    },
+                                );
+                            }
+                        });
+                });
+                ui.add_space(6.0);
+                if self.scan_error.is_none() {
+                    ui.label(theme::secondary(
+                        "Arahkan kamera ke QR di perangkat lain",
+                        p,
+                    ));
+                }
+            } else if let Some(pairing) = &self.pairing {
                 let left = pairing
                     .expires
                     .saturating_duration_since(Instant::now())

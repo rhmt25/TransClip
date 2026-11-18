@@ -3,6 +3,7 @@
 Sinkronisasi clipboard (teks dan gambar) dan transfer file/folder antara **Windows 11** dan **Android** lewat jaringan lokal, terenkripsi end-to-end. Satu `.exe` untuk Windows, satu `.apk` untuk Android. Tanpa server, tanpa akun.
 
 ## Fitur
+- Pairing dengan QR: tampilkan atau pindai dengan kamera (HP dan laptop).
 - Antarmuka terang dan gelap (ikuti sistem atau pilih manual), TransClip muncul di pencarian Windows.
 - Salin di satu perangkat, tempel di perangkat lain. Gambar dikirim lossless (PNG).
 - Kirim file dan folder dua arah, dengan resume dan verifikasi hash.

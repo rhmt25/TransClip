@@ -29,7 +29,7 @@
     <string name="target_dir_title">Folder Penerimaan</string>
     <string name="target_dir_change">Ubah…</string>
     <string name="target_dir_reset">Reset ke default</string>
-    <string name="pairing_scan">Scan QR</string>
+    <string name="pairing_scan">Pindai QR</string>
     <string name="pairing_scan_prompt">Arahkan kamera ke QR di perangkat lain</string>
     <string name="pairing_replace_title">Ganti Grup?</string>
     <string name="pairing_replace_body">Perangkat ini sudah tergabung dalam grup. Bergabung ke grup baru akan memutus koneksi lama.</string>
@@ -87,7 +87,7 @@
     <string name="via_bt">Bluetooth</string>
     <string name="activity_empty">Belum ada aktivitas.</string>
     <string name="pairing_join_section">Gabung ke grup</string>
-    <string name="pairing_scan_hint">Pindai QR yang tampil di PC atau perangkat lain yang sudah punya grup.</string>
+    <string name="pairing_scan_hint">Arahkan kamera ke QR di perangkat lain</string>
     <string name="pairing_or_paste">Atau tempel kode secara manual</string>
     <string name="pairing_add_section">Tambah perangkat dari sini</string>
     <string name="pairing_add_hint">Tampilkan kode, lalu pindai dari perangkat lain. Kode berlaku 2 menit.</string>
@@ -119,4 +119,6 @@
     <string name="pairing_copy">Salin kode</string>
     <string name="home_add_device">Tambah Perangkat</string>
     <string name="home_not_paired_hint">Pasangkan untuk memulai</string>
+    <string name="camera_needed">Kamera diperlukan untuk memindai QR.</string>
+    <string name="camera_allow">Izinkan Kamera</string>
 </resources>
