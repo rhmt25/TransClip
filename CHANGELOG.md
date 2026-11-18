@@ -11,5 +11,6 @@ Rilis pertama.
 - Windows: ikon tray, jendela Settings (egui, proses terpisah), menu *Kirim ke*, folder tujuan yang bisa diubah.
 - Android: layanan foreground, Quick Settings tile, Share Sheet, pemilih folder tujuan (SAF), layar transfer dan riwayat.
 - Batas: 20 item clipboard / 10 detik per perangkat, 10 perangkat per grup, 3 batch paralel per perangkat.
-
-Belum ada di rilis ini: Bluetooth cadangan (P6) dan menu radial drag-and-drop (P5-04).
+- Menu radial: tahan klik kiri, seret file, tekan tombol pemicu (default Shift, bisa direkam ulang di Settings), lepas di perangkat tujuan; zona **Batal** di tengah.
+- Bluetooth cadangan: bila Wi-Fi putus, perangkat berprioritas tersambung lewat Bluetooth dalam ±13 detik dan kembali ke LAN otomatis; gambar besar diumumkan dan diambil sesuai permintaan.
+- Android: sinkron otomatis lewat layanan Aksesibilitas (opsional), pemantau screenshot (opsional), pemilih perangkat di Share Sheet, layar transfer dengan tombol Batal.

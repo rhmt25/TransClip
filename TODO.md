@@ -210,7 +210,7 @@ Baca `CLAUDE.md` dulu. Spesifikasi: `docs/PLAN.md` (arsitektur) dan `docs/PROTOC
 * **Lakukan:** pipe dengan DACL hanya user sekarang; method & event PLAN §5.6; klien dipakai oleh proses settings dan instans kedua.
 * **Selesai jika:** test integrasi server↔client dalam proses; instans kedua memicu `show_settings`.
 
-### [~] P2-09 · Daemon: autostart
+### [x] P2-09 · Daemon: autostart
 * **Dep:** P2-05
 * **Selesai jika:** toggle config menulis/menghapus nilai `Run`; path exe ber-spasi dikutip; **[MANUAL]** login ulang → daemon berjalan.
 
@@ -413,7 +413,7 @@ Baca `CLAUDE.md` dulu. Spesifikasi: `docs/PLAN.md` (arsitektur) dan `docs/PROTOC
 ### [x] P8-01 · Versi & changelog
 * **Lakukan:** versi `1.0.0` di `Cargo.toml` (app) dan `versionName`/`versionCode` Android; `CHANGELOG.md`; versi ditampilkan di Settings dan `hello.app`.
 
-### [~] P8-02 · Build release reproducible
+### [x] P8-02 · Build release reproducible
 * **Lakukan:** skrip `scripts/build-release.ps1` yang menjalankan test lalu menghasilkan `dist/TransClip-<ver>-windows-x64.exe` dan `dist/TransClip-<ver>.apk` + `SHA256SUMS.txt`.
 * **Selesai jika:** skrip berjalan bersih dari clone baru (setelah toolchain terpasang).
 
