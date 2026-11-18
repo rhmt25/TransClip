@@ -248,7 +248,7 @@ Baca `CLAUDE.md` dulu. Spesifikasi: `docs/PLAN.md` (arsitektur) dan `docs/PROTOC
 * **Lakukan:** Activity transparan (theme `Translucent.NoTitleBar`, `excludeFromRecents`, `noHistory`, `taskAffinity=""`) membaca di `onWindowFocusChanged(true)`; cek `EXTRA_IS_SENSITIVE` & penanda echo; kirim via service; toast singkat "Terkirim ke n perangkat". Tile & aksi notifikasi memanggilnya (Android 14+: gunakan `PendingIntent` untuk `startActivityAndCollapse`).
 * **Selesai jika:** **[MANUAL]** salin teks di HP → tekan tile → muncul di `Win + V` PC; gambar yang disalin dari galeri juga terkirim.
 
-### [~] P3-06 · Auto-capture Accessibility (opsional, sesuai S2)
+### [x] P3-06 · Auto-capture Accessibility (opsional, sesuai S2)
 * **Dep:** P3-05, P0-10
 * **File:** `clip/CaptureAccessibilityService.kt`, `res/xml/accessibility_config.xml`
 * **Lakukan:** implementasi heuristik final dari S2; rate-limit; toggle di Settings (default mati); layar penjelasan sebelum membuka setelan Accessibility.
@@ -287,7 +287,7 @@ Baca `CLAUDE.md` dulu. Spesifikasi: `docs/PLAN.md` (arsitektur) dan `docs/PROTOC
 * **Lakukan:** semua opsi PLAN §5.2 (`config.toml`) dan padanannya di Android `SettingsScreen` (nama perangkat, jeda, teks/gambar, terima file, boot, auto-capture, prioritas BT per peer, *Lupakan perangkat*, level log, ekspor log via share).
 * **Selesai jika:** setiap setting berpengaruh nyata (dicek manual per item, dicatat di `manual-tests.md`).
 
-### [~] P4-05 · Rotasi kunci grup
+### [x] P4-05 · Rotasi kunci grup
 * **Dep:** P4-04, P2-04, P3-02
 * **Lakukan:** pesan `rekey` / `rekey_ack` (PROTOCOL §9.4) di kedua engine; UI *Ganti Group Key* dengan pilihan perangkat yang dicabut; perangkat yang dicabut dihapus dari daftar.
 * **Selesai jika:** test engine Rust: 3 peer, cabut 1 → 2 sisanya reconnect dengan GK baru, yang dicabut gagal handshake; **[MANUAL]** skenario sama dengan perangkat asli.
@@ -313,7 +313,7 @@ Baca `CLAUDE.md` dulu. Spesifikasi: `docs/PLAN.md` (arsitektur) dan `docs/PROTOC
 * **Lakukan:** padanan P5-01; `IncomingStore` Android menulis ke default `MediaStore.Downloads` (`Download/TransClip/…`). Folder kustom ditambahkan di P5-09, jadi rancang `IncomingStore` sebagai interface dengan dua implementasi (`MediaStoreDownloads`, `SafTree`).
 * **Selesai jika:** test JVM interop live (skip bila env tidak ada): kirim/terima folder dengan `interop_peer`, hash cocok, resume bekerja.
 
-### [~] P5-04 · Windows: Radial Drop Menu
+### [x] P5-04 · Windows: Radial Drop Menu
 * **Dep:** P5-01, P2-06, P0-10
 * **File:** `app/src/radial/{hook.rs,overlay.rs,drop_target.rs,render.rs,geometry.rs}`
 * **Lakukan:** PLAN §5.4 sesuai keputusan S3. `geometry.rs` (sudut → segmen, sub-ring) diuji unit. Render dengan Direct2D atau tiny-skia ke DIB premultiplied.
@@ -366,18 +366,18 @@ Baca `CLAUDE.md` dulu. Spesifikasi: `docs/PLAN.md` (arsitektur) dan `docs/PROTOC
 
 > Bila P0-10 memutuskan BT ditunda ke v1.1, tandai seluruh P6 `[x] (ditunda)` dan lanjut ke P7.
 
-### [~] P6-01 · Windows: transport RFCOMM
+### [x] P6-01 · Windows: transport RFCOMM
 * **Dep:** P0-09, P2-03
 * **File:** `app/src/bluetooth/{server.rs,client.rs,sdp.rs,devices.rs}`
 * **Lakukan:** API hasil S4; server terdaftar dengan UUID PROTOCOL §2; klien ke perangkat paired; daftar perangkat paired OS (nama + alamat) untuk UI; bungkus socket sebagai `AsyncRead+AsyncWrite` (thread blocking + channel bila perlu).
 * **Selesai jika:** **[MANUAL]** handshake + hello sukses melalui BT dengan HP (Wi-Fi HP dimatikan).
 
-### [~] P6-02 · Android: transport RFCOMM
+### [x] P6-02 · Android: transport RFCOMM
 * **Dep:** P0-09, P3-02
 * **File:** `net/RfcommServer.kt`, `net/RfcommDialer.kt`
 * **Selesai jika:** **[MANUAL]** Android ↔ Windows dan Android ↔ Android terhubung via BT.
 
-### [~] P6-03 · Mode Priority/Lazy & failover (kedua engine)
+### [x] P6-03 · Mode Priority/Lazy & failover (kedua engine)
 * **Dep:** P6-01, P6-02
 * **Lakukan:** PLAN §4.2 lengkap (10 s, 60 s, maks 3 link BT, prioritas per peer), multiplexing chunk 8 KiB di link BT, `announce`/`pull` untuk gambar besar, notifikasi "Gambar tersedia".
 * **Selesai jika:** test engine dengan transport palsu (LAN & BT disimulasikan) untuk failover dan pemulihan tanpa duplikasi; **[MANUAL]** matikan Wi-Fi di tengah sesi → teks tetap tersinkron via BT dalam < 15 s; nyalakan lagi → kembali ke LAN, link BT ditutup setelah 60 s.
