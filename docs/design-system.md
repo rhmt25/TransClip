@@ -28,3 +28,10 @@ Kontras teks di atas aksen: 7:1 di tema gelap; di tema terang 2,8:1 (putih di `#
 - **Android (Compose):** `android/app/src/main/kotlin/io/transclip/app/ui/` (`Theme.kt`, `Components.kt`, `Screens.kt`). Tiga tujuan di navigasi bawah: Beranda, Pairing, Pengaturan. Tema disimpan di DataStore (`themeMode`).
 - **Ikon:** `Icon.png` di root diolah menjadi `windows/app/assets/*.ico` (aplikasi, jeda, galat), `icon-256.png` (jendela), dan ikon adaptif Android (`mipmap-anydpi-v26`, latar `#12151A`, ikon monokrom untuk tema Android 13+).
 - **Windows Search:** daemon menjaga pintasan `%APPDATA%\Microsoft\Windows\Start Menu\Programs\TransClip.lnk` (bisa dimatikan di Settings → Umum → Windows). Windows mengindeks menu Start, jadi "TransClip" muncul di pencarian dan membuka jendela Settings.
+
+## Revisi 2 (umpan balik pengguna)
+- Menu dikurangi: Windows hanya **Perangkat** dan **Pengaturan**; Android hanya **Beranda** dan **Pengaturan** (Pairing menjadi lembar bawah dari tombol Tambah perangkat).
+- Tata letak tidak lagi berupa deretan baris: Windows memakai kolom (tile perangkat + panel QR, panel pengaturan dua kolom); Android memakai hero dengan angka besar, tiga kartu aksi, dan karusel kartu perangkat.
+- Teks dipangkas; penjelasan panjang dipindah ke tooltip atau dihapus.
+- Kontrol sesuai fungsi: *switch* untuk pengaturan aktif/nonaktif, *checkbox* untuk memilih beberapa item (mis. perangkat yang dicabut).
+- Ikon aplikasi (`.exe`, tray, jendela, launcher Android) memakai `Icon_bg_putih.png` dengan latar putih (launcher: latar adaptif `#FEFEFE` agar tidak hitam); logo di dalam aplikasi memakai `Icon.png` yang transparan.

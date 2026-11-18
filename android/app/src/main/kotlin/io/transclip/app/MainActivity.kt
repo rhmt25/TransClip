@@ -34,6 +34,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -77,7 +79,7 @@ import io.transclip.app.ui.Checkbox
 import io.transclip.app.ui.HomeActions
 import io.transclip.app.ui.HomeScreen
 import io.transclip.app.ui.PairingActions
-import io.transclip.app.ui.PairingScreen
+import io.transclip.app.ui.PairingContent
 import io.transclip.app.ui.SettingsActions
 import io.transclip.app.ui.SettingsScreen
 import io.transclip.app.ui.ThemeMode
@@ -131,6 +133,7 @@ class MainActivity : ComponentActivity() {
         val transfers by AppState.transfers.collectAsStateWithLifecycle()
 
         var tab by rememberSaveable { mutableIntStateOf(0) }
+        var pairingOpen by remember { mutableStateOf(false) }
         var code by remember(prefill) { mutableStateOf(prefill) }
         var invite by remember { mutableStateOf("") }
         var inviteExpiresAt by remember { mutableLongStateOf(0L) }
@@ -143,7 +146,7 @@ class MainActivity : ComponentActivity() {
         }
         LaunchedEffect(openPairingTab) {
             if (openPairingTab) {
-                tab = 1
+                pairingOpen = true
                 openPairingTab = false
             }
         }
@@ -212,7 +215,7 @@ class MainActivity : ComponentActivity() {
                             app.secrets.setGroupKey(info.gk)
                             code = ""
                             SyncService.start(this@MainActivity, SyncService.ACTION_RESTART)
-                            tab = 0
+                            pairingOpen = false
                             getString(R.string.pairing_joined)
                         }
                     } catch (e: ProtoException) {
@@ -312,7 +315,7 @@ class MainActivity : ComponentActivity() {
             },
             cancel = { t -> scope.launch { app.engine.cancelTransfer(t) } },
             clearHistory = { AppState.clearHistory() },
-            openPairing = { tab = 1 },
+            openPairing = { pairingOpen = true },
         )
         val pairing = PairingActions(
             scan = {
@@ -422,13 +425,6 @@ class MainActivity : ComponentActivity() {
                         NavigationBarItem(
                             selected = tab == 1,
                             onClick = { tab = 1 },
-                            icon = { Icon(painterResource(R.drawable.ic_link), contentDescription = null, modifier = Modifier.size(24.dp)) },
-                            label = { Text(stringResource(R.string.nav_pairing)) },
-                            colors = colors,
-                        )
-                        NavigationBarItem(
-                            selected = tab == 2,
-                            onClick = { tab = 2 },
                             icon = { Icon(Icons.Filled.Settings, contentDescription = null) },
                             label = { Text(stringResource(R.string.nav_settings)) },
                             colors = colors,
@@ -439,10 +435,16 @@ class MainActivity : ComponentActivity() {
                 Column(Modifier.padding(inner).fillMaxSize()) {
                     when (tab) {
                         0 -> HomeScreen(peers, paired, paused, autoOn, transfers, history, home)
-                        1 -> PairingScreen(paired, code, invite, inviteExpiresAt, pairing)
                         else -> SettingsScreen(settings, peers, autoOn, targetLabel, themeMode, settingsActions)
                     }
                 }
+            }
+            if (pairingOpen) {
+                ModalBottomSheet(
+                    onDismissRequest = { pairingOpen = false },
+                    sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+                    containerColor = t.canvas,
+                ) { PairingContent(paired, code, invite, inviteExpiresAt, pairing) }
             }
         }
     }

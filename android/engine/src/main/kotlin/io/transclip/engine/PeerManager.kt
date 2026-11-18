@@ -70,6 +70,8 @@ data class PeerStatus(
     val state: PeerState,
     val addr: InetSocketAddress?,
     val transport: Transport? = null,
+    /** Platform reported in `hello` (`windows`, `android`), empty until the first link. */
+    val platform: String = "",
 )
 
 /** Events for the application. */
@@ -111,6 +113,7 @@ private class Peer(var name: String, var addr: InetSocketAddress?, backoffMs: Lo
 
     /** The other transport's link, kept as a spare. */
     var standby: Active? = null
+    var platform = ""
     var dialing = false
     var btDialing = false
     var backoffMs = backoffMs
@@ -370,7 +373,7 @@ class PeerManager(
     }
 
     private fun publish() {
-        statusFlow.value = peers.map { (id, p) -> PeerStatus(id, p.name, p.state, p.addr, p.active?.via) }.sortedBy { it.id }
+        statusFlow.value = peers.map { (id, p) -> PeerStatus(id, p.name, p.state, p.addr, p.active?.via, p.platform) }.sortedBy { it.id }
     }
 
     private suspend fun admit(id: DeviceId, name: String): Boolean {
@@ -480,6 +483,7 @@ class PeerManager(
         peer.active = links.first()
         peer.standby = links.getOrNull(1)
         peer.name = r.info.name
+        peer.platform = r.info.platform
         peer.backoffMs = cfg.backoffMinMs
         if (r.via == Transport.LAN && peer.lanUpSinceMs == null) peer.lanUpSinceMs = nowMs()
         handles[id] = peer.active!!.handle

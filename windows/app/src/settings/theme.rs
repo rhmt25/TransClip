@@ -224,38 +224,6 @@ pub fn rule(ui: &mut egui::Ui, p: &Palette) {
     ui.painter().rect_filled(rect, 0.0, p.border);
 }
 
-/// Small uppercase-free section title.
-pub fn section(ui: &mut egui::Ui, p: &Palette, title: &str) {
-    ui.add_space(14.0);
-    ui.label(bold(title, 13.0).color(p.text2));
-    ui.add_space(2.0);
-    rule(ui, p);
-}
-
-/// One settings row: title and optional description on the left, the control on the right,
-/// a hairline below.
-pub fn row(
-    ui: &mut egui::Ui,
-    p: &Palette,
-    title: &str,
-    desc: Option<&str>,
-    control: impl FnOnce(&mut egui::Ui),
-) {
-    ui.horizontal(|ui| {
-        ui.set_min_height(44.0);
-        ui.vertical(|ui| {
-            ui.add_space(6.0);
-            ui.label(RichText::new(title).size(14.0));
-            if let Some(d) = desc {
-                ui.label(secondary(d, p));
-            }
-            ui.add_space(6.0);
-        });
-        ui.with_layout(Layout::right_to_left(Align::Center), |ui| control(ui));
-    });
-    rule(ui, p);
-}
-
 /// Pill switch in the accent colour (Windows 11 style).
 pub fn toggle(ui: &mut egui::Ui, p: &Palette, on: &mut bool) -> egui::Response {
     let size = Vec2::new(40.0, 22.0);
@@ -367,48 +335,6 @@ pub fn badge(ui: &mut egui::Ui, p: &Palette, text: &str, colour: Color32) {
         .galley(rect.center() - galley.size() / 2.0, galley, colour);
 }
 
-/// Left-hand navigation entry; returns true when clicked.
-pub fn nav_item(ui: &mut egui::Ui, p: &Palette, label: &str, selected: bool) -> bool {
-    let (rect, resp) =
-        ui.allocate_exact_size(Vec2::new(ui.available_width(), 36.0), Sense::click());
-    if selected || resp.hovered() {
-        ui.painter().rect_filled(
-            rect,
-            CornerRadius::same(6),
-            if selected {
-                p.subtle
-            } else {
-                p.subtle.gamma_multiply(0.6)
-            },
-        );
-    }
-    if selected {
-        let bar = Rect::from_min_size(
-            egui::pos2(rect.left() + 2.0, rect.top() + 8.0),
-            Vec2::new(3.0, rect.height() - 16.0),
-        );
-        ui.painter()
-            .rect_filled(bar, CornerRadius::same(2), p.accent);
-    }
-    let colour = if selected { p.text } else { p.text2 };
-    let font = if selected {
-        FontId::new(14.0, FontFamily::Name("bold".into()))
-    } else {
-        FontId::new(14.0, FontFamily::Proportional)
-    };
-    ui.painter().text(
-        egui::pos2(rect.left() + 16.0, rect.center().y),
-        egui::Align2::LEFT_CENTER,
-        label,
-        font,
-        colour,
-    );
-    if resp.hovered() {
-        ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
-    }
-    resp.clicked()
-}
-
 /// Segmented control for the appearance setting; returns the new choice when it changes.
 pub fn theme_switcher(ui: &mut egui::Ui, p: &Palette, current: Mode) -> Option<Mode> {
     let items = [
@@ -479,6 +405,172 @@ pub fn theme_switcher(ui: &mut egui::Ui, p: &Palette, current: Mode) -> Option<M
             }
         },
     );
+    picked
+}
+
+/// One level of surface: a titled panel with a 1 px border and 8 px corners.
+pub fn panel<R>(
+    ui: &mut egui::Ui,
+    p: &Palette,
+    title: &str,
+    add: impl FnOnce(&mut egui::Ui) -> R,
+) -> R {
+    egui::Frame::NONE
+        .fill(p.surface)
+        .stroke(Stroke::new(1.0, p.border))
+        .corner_radius(CornerRadius::same(8))
+        .inner_margin(egui::Margin::same(16))
+        .show(ui, |ui| {
+            ui.set_width(ui.available_width());
+            ui.label(bold(title, 14.5));
+            ui.add_space(10.0);
+            add(ui)
+        })
+        .inner
+}
+
+/// A fixed-size tile for one device.
+pub fn tile(ui: &mut egui::Ui, p: &Palette, w: f32, h: f32, add: impl FnOnce(&mut egui::Ui)) {
+    egui::Frame::NONE
+        .fill(p.surface)
+        .stroke(Stroke::new(1.0, p.border))
+        .corner_radius(CornerRadius::same(8))
+        .inner_margin(egui::Margin::same(12))
+        .show(ui, |ui| {
+            ui.set_min_size(Vec2::new(w - 24.0, h - 24.0));
+            ui.set_max_size(Vec2::new(w - 24.0, h - 24.0));
+            add(ui);
+        });
+}
+
+/// Drawn device icon: a laptop, a phone, or an empty outline when the platform is unknown.
+pub fn device_glyph(ui: &mut egui::Ui, p: &Palette, platform: &str, online: bool) {
+    let size = Vec2::splat(40.0);
+    let (rect, _) = ui.allocate_exact_size(size, Sense::hover());
+    let c = if online { p.accent } else { p.text2 };
+    let stroke = Stroke::new(2.0, c);
+    let r = CornerRadius::same(3);
+    match platform {
+        "windows" => {
+            let screen =
+                Rect::from_center_size(rect.center() - Vec2::new(0.0, 3.0), Vec2::new(30.0, 20.0));
+            ui.painter()
+                .rect_stroke(screen, r, stroke, StrokeKind::Inside);
+            let base =
+                Rect::from_center_size(rect.center() + Vec2::new(0.0, 11.0), Vec2::new(38.0, 3.0));
+            ui.painter().rect_filled(base, CornerRadius::same(1), c);
+        }
+        "android" => {
+            let body = Rect::from_center_size(rect.center(), Vec2::new(20.0, 34.0));
+            ui.painter()
+                .rect_stroke(body, CornerRadius::same(4), stroke, StrokeKind::Inside);
+            ui.painter()
+                .circle_filled(body.center_bottom() - Vec2::new(0.0, 4.0), 1.5, c);
+        }
+        _ => {
+            ui.painter().circle_stroke(
+                rect.center(),
+                15.0,
+                Stroke::new(2.0, c.gamma_multiply(0.6)),
+            );
+            ui.painter()
+                .circle_filled(rect.center(), 3.0, c.gamma_multiply(0.6));
+        }
+    }
+}
+
+/// Square check box with a label (for choosing items, as opposed to a switch for a setting).
+pub fn checkbox(ui: &mut egui::Ui, p: &Palette, value: &mut bool, label: &str) -> egui::Response {
+    ui.horizontal(|ui| {
+        let (rect, mut resp) = ui.allocate_exact_size(Vec2::splat(20.0), Sense::click());
+        if resp.clicked() {
+            *value = !*value;
+            resp.mark_changed();
+        }
+        let radius = CornerRadius::same(4);
+        ui.painter()
+            .rect_filled(rect, radius, if *value { p.accent } else { p.surface });
+        ui.painter().rect_stroke(
+            rect,
+            radius,
+            Stroke::new(1.5, if *value { p.accent } else { p.text2 }),
+            StrokeKind::Inside,
+        );
+        if *value {
+            let c = rect.center();
+            let tick = [
+                c + Vec2::new(-5.0, 0.5),
+                c + Vec2::new(-1.5, 4.0),
+                c + Vec2::new(5.5, -3.5),
+            ];
+            ui.painter()
+                .line_segment([tick[0], tick[1]], Stroke::new(2.0, p.on_accent));
+            ui.painter()
+                .line_segment([tick[1], tick[2]], Stroke::new(2.0, p.on_accent));
+        }
+        if resp.hovered() {
+            ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+        }
+        ui.label(label);
+        resp
+    })
+    .inner
+}
+
+/// Small read-only value in a bordered pill, e.g. the radial trigger key.
+pub fn chip(ui: &mut egui::Ui, p: &Palette, text: &str) {
+    let galley = ui.painter().layout_no_wrap(
+        text.to_owned(),
+        FontId::new(13.0, FontFamily::Monospace),
+        p.text,
+    );
+    let (rect, _) = ui.allocate_exact_size(galley.size() + Vec2::new(20.0, 10.0), Sense::hover());
+    ui.painter()
+        .rect_filled(rect, CornerRadius::same(6), p.subtle);
+    ui.painter().rect_stroke(
+        rect,
+        CornerRadius::same(6),
+        Stroke::new(1.0, p.border),
+        StrokeKind::Inside,
+    );
+    ui.painter()
+        .galley(rect.center() - galley.size() / 2.0, galley, p.text);
+}
+
+/// Segmented tabs; returns the index that was clicked.
+pub fn tabs(ui: &mut egui::Ui, p: &Palette, labels: &[&str], current: usize) -> Option<usize> {
+    let font = FontId::new(14.0, FontFamily::Name("bold".into()));
+    let mut picked = None;
+    ui.spacing_mut().item_spacing.x = 4.0;
+    for (i, label) in labels.iter().enumerate() {
+        let selected = i == current;
+        let galley = ui.painter().layout_no_wrap(
+            (*label).to_owned(),
+            font.clone(),
+            if selected { p.on_accent } else { p.text2 },
+        );
+        let (rect, resp) =
+            ui.allocate_exact_size(Vec2::new(galley.size().x + 28.0, 32.0), Sense::click());
+        let fill = if selected {
+            p.accent
+        } else if resp.hovered() {
+            p.subtle
+        } else {
+            Color32::TRANSPARENT
+        };
+        ui.painter().rect_filled(rect, CornerRadius::same(6), fill);
+        ui.painter().galley(
+            rect.center() - galley.size() / 2.0,
+            galley,
+            if selected { p.on_accent } else { p.text2 },
+        );
+        if resp.hovered() {
+            ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+        }
+        if resp.clicked() && !selected {
+            picked = Some(i);
+        }
+    }
     picked
 }
 

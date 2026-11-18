@@ -135,6 +135,8 @@ pub struct PeerStatus {
     pub addr: Option<SocketAddr>,
     /// Transport of the link in use, when online.
     pub transport: Option<Transport>,
+    /// Platform reported in `hello` (`windows`, `android`), empty until the first link.
+    pub platform: String,
 }
 
 /// Events for the application.
@@ -201,6 +203,7 @@ struct Active {
 
 struct Peer {
     name: String,
+    platform: String,
     addr: Option<SocketAddr>,
     /// The link in use (LAN preferred).
     active: Option<Active>,
@@ -593,6 +596,7 @@ impl Actor {
                 state: p.state(),
                 addr: p.addr,
                 transport: p.active.as_ref().map(|a| a.via),
+                platform: p.platform.clone(),
             })
             .collect();
         list.sort_by_key(|s| s.id);
@@ -603,6 +607,7 @@ impl Actor {
         let now = Instant::now();
         Peer {
             name,
+            platform: String::new(),
             addr,
             active: None,
             standby: None,
@@ -865,6 +870,7 @@ impl Actor {
         peer.active = Some(links.remove(0));
         peer.standby = links.pop();
         peer.name = info.name.clone();
+        peer.platform = info.platform.clone();
         peer.backoff = min;
         if via == Transport::Lan && peer.lan_up_since.is_none() {
             peer.lan_up_since = Some(Instant::now());
