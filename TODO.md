@@ -335,7 +335,7 @@ Baca `CLAUDE.md` dulu. Spesifikasi: `docs/PLAN.md` (arsitektur) dan `docs/PROTOC
 * **Lakukan:** PLAN §6.6.
 * **Selesai jika:** **[MANUAL]** bagikan 1 foto, 10 foto, PDF, dan teks dari app lain → tiba di PC; Direct Share menampilkan peer yang sering dipakai.
 
-### [ ] P5-08 · Android: layar Transfer & Riwayat
+### [~] P5-08 · Android: layar Transfer & Riwayat
 * **Dep:** P5-07
 * **Lakukan:** `TransfersScreen` (progres, batal, ulangi), `HistoryScreen` (ketuk = salin lagi, tahan = hapus, bersihkan semua).
 * **Selesai jika:** **[MANUAL]** progres bergerak saat transfer besar; batal di HP menghentikan transfer di PC.
@@ -386,23 +386,23 @@ Baca `CLAUDE.md` dulu. Spesifikasi: `docs/PLAN.md` (arsitektur) dan `docs/PROTOC
 
 ## P7 — Hardening, Kinerja, Keamanan
 
-### [ ] P7-01 · Fuzzing & batas
+### [x] P7-01 · Fuzzing & batas
 * **Lakukan:** `proptest` untuk frame/record/beacon/pairing (Rust) dan test acak JUnit (Kotlin) 10 000 iterasi; tambah `cargo fuzz` target bila memungkinkan di Windows (opsional).
 * **Selesai jika:** tidak ada panic/crash; semua input salah berakhir dengan error terkendali.
 
-### [ ] P7-02 · Rate limit & kuota
+### [x] P7-02 · Rate limit & kuota
 * **Lakukan:** per peer: maks 20 item clipboard / 10 s, maks 3 transfer paralel, `max_incoming_file_bytes`, cek ruang disk sebelum `file_accept` (`disk_full`).
 * **Selesai jika:** test engine memverifikasi `busy`, `quota`, `disk_full`.
 
-### [ ] P7-03 · Audit keamanan mandiri
+### [~] P7-03 · Audit keamanan mandiri
 * **Lakukan:** checklist di `docs/security-review.md`: tidak ada log isi clipboard/kunci; zeroize kunci; DACL pipe; validasi semua input dari jaringan; tidak ada `unwrap` pada data jaringan; QR tidak disimpan; file diterima tidak pernah dieksekusi/dibuka otomatis; dependency audit (`cargo audit`, `./gradlew dependencyCheck` atau setara).
 * **Selesai jika:** semua item checklist berstatus OK atau punya catatan risiko yang diterima pengguna.
 
-### [ ] P7-04 · Kinerja & sumber daya
+### [~] P7-04 · Kinerja & sumber daya
 * **Lakukan:** ukur dan catat di `docs/perf.md`: latensi teks p95 (100 sampel), gambar 3 MB, transfer 1 GB (MB/s), RAM idle & saat transfer (Windows, Android), CPU idle, baterai Android 8 jam idle (**[MANUAL]**).
 * **Selesai jika:** target PLAN §10 terpenuhi atau selisihnya dijelaskan + disetujui pengguna.
 
-### [ ] P7-05 · Ketahanan
+### [~] P7-05 · Ketahanan
 * **Lakukan:** uji 24 jam (2 PC/1 PC + 2 HP), ganti jaringan Wi-Fi, sleep/hibernate Windows (tangani `WM_POWERBROADCAST` → reconnect), restart router, mode pesawat, kehabisan disk.
 * **Selesai jika:** hasil dicatat di `manual-tests.md`; tidak ada crash/kebocoran memori (> 20% naik).
 
@@ -410,17 +410,17 @@ Baca `CLAUDE.md` dulu. Spesifikasi: `docs/PLAN.md` (arsitektur) dan `docs/PROTOC
 
 ## P8 — Rilis
 
-### [ ] P8-01 · Versi & changelog
+### [x] P8-01 · Versi & changelog
 * **Lakukan:** versi `1.0.0` di `Cargo.toml` (app) dan `versionName`/`versionCode` Android; `CHANGELOG.md`; versi ditampilkan di Settings dan `hello.app`.
 
-### [ ] P8-02 · Build release reproducible
+### [~] P8-02 · Build release reproducible
 * **Lakukan:** skrip `scripts/build-release.ps1` yang menjalankan test lalu menghasilkan `dist/TransClip-<ver>-windows-x64.exe` dan `dist/TransClip-<ver>.apk` + `SHA256SUMS.txt`.
 * **Selesai jika:** skrip berjalan bersih dari clone baru (setelah toolchain terpasang).
 
 ### [ ] P8-03 · Penandatanganan [MANUAL]
 * **Lakukan:** pandu pengguna membuat keystore Android (simpan di luar repo) dan mengisi `keystore.properties`. Code signing Windows **(opsional)** bila pengguna punya sertifikat.
 
-### [ ] P8-04 · Dokumentasi pengguna
+### [x] P8-04 · Dokumentasi pengguna
 * **Lakukan:** `README.md` (fitur, unduh, instal, pairing, firewall *Private network*, izin Android dan alasannya, keterbatasan: UIPI, auto-capture, BT), `docs/troubleshooting.md` (tidak terhubung, AP isolation, Doze, SmartScreen, cara ambil log).
 
 ### [ ] P8-05 · Uji penerimaan akhir [MANUAL]

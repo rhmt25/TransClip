@@ -47,3 +47,11 @@ Jalankan `transclip.exe`, klik kanan tray → *Pengaturan* (atau `transclip.exe 
 
 ## T06 — Pairing QR di Android (P4-03)
 HP: *Scan QR* (izinkan kamera) → arahkan ke QR di jendela Settings PC (tab Pairing → Tampilkan kode pairing). Harapan: terhubung < 5 detik; bila HP sudah punya grup, muncul dialog konfirmasi *Ganti grup?*. Sebaliknya: *Buat grup* di HP menampilkan QR; Android B memindainya.
+
+## T07 — Ringkasan uji akhir (P4-04, P4-05, P5-05, P5-08, P7-05)
+* **Pengaturan Android:** ganti nama perangkat, matikan *Sinkronkan teks* lalu salin teks dari PC → tidak muncul di HP.
+* **Rotasi kunci (M14):** PC → Settings → Pairing → *Ganti Group Key…*, centang satu HP sebagai dicabut → HP lain tetap tersambung, HP yang dicabut berstatus offline dan perlu pairing ulang.
+* **Kirim ke (M07 sebagian):** Settings → Umum → centang *Tampilkan di menu Kirim ke*; klik kanan file → Kirim ke → TransClip → pilih perangkat. Tray → *Kirim file…* mengirim ke semua perangkat online.
+* **Layar transfer Android:** kirim file besar dari PC; progres bergerak, *Batal* menghentikan transfer.
+* **Sleep/resume (P7-05):** tidurkan PC 1 menit, bangunkan → HP kembali online < 15 detik.
+* **Rate limit:** kirim > 20 salinan dalam 10 detik dari satu perangkat → sisanya ditolak (`busy`), tidak ada crash.

@@ -83,7 +83,7 @@ class EngineHost(private val context: Context) {
         val seen = Channel<PeerSeen>(64)
         val manager = PeerManager(
             ManagerConfig(
-                local = LocalInfo(me, cfg.deviceName, "android", "transclip/0.1.0", listOf("clip"), "full"),
+                local = LocalInfo(me, cfg.deviceName, "android", "transclip/1.0.0", listOf("clip"), "full"),
                 gk = gk,
                 listenPort = TCP_PORT,
             ),
@@ -153,6 +153,14 @@ class EngineHost(private val context: Context) {
         }
         s.launch {
             for (ev in tm.events) {
+                when (ev) {
+                    is TransferEvent.Started -> AppState.transferStarted(
+                        io.transclip.app.ActiveTransfer(ev.xferId, ev.batchId, ev.name, ev.offset, ev.bytes, ev.incoming),
+                    )
+                    is TransferEvent.Progress -> AppState.transferProgress(ev.xferId, ev.done, ev.total)
+                    is TransferEvent.Finished -> AppState.transferEnded(ev.xferId)
+                    else -> {}
+                }
                 if (ev is TransferEvent.BatchFinished) {
                     TransferNotifier.batchFinished(context, ev.ok, ev.failed, ev.incoming)
                     AppState.addHistory(
@@ -244,6 +252,12 @@ class EngineHost(private val context: Context) {
             for (b in batches) s.launch { runCatching { tm.sendBatch(peer, b) } }
         }
         return targets.size
+    }
+
+    /** Stop a running transfer: outgoing batches by batch id, incoming files by transfer id. */
+    suspend fun cancelTransfer(t: io.transclip.app.ActiveTransfer) {
+        val tm = transfers ?: return
+        if (t.incoming) tm.cancelIncoming(t.xferId) else tm.cancelBatch(t.batchId)
     }
 
     fun onlineCount(): Int = mgr?.onlinePeers()?.size ?: 0

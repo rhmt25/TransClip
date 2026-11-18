@@ -13,9 +13,10 @@ use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, GetMessageW,
     GetWindowLongPtrW, PostQuitMessage, RegisterClassExW, RegisterWindowMessageW,
-    SetWindowLongPtrW, TranslateMessage, CREATESTRUCTW, GWLP_USERDATA, MSG, WINDOW_EX_STYLE,
-    WINDOW_STYLE, WM_CLIPBOARDUPDATE, WM_COMMAND, WM_CONTEXTMENU, WM_CREATE, WM_DESTROY,
-    WM_LBUTTONDBLCLK, WM_NCCREATE, WM_RBUTTONUP, WM_TIMER, WNDCLASSEXW,
+    SetWindowLongPtrW, TranslateMessage, CREATESTRUCTW, GWLP_USERDATA, MSG, PBT_APMRESUMEAUTOMATIC,
+    WINDOW_EX_STYLE, WINDOW_STYLE, WM_CLIPBOARDUPDATE, WM_COMMAND, WM_CONTEXTMENU, WM_CREATE,
+    WM_DESTROY, WM_LBUTTONDBLCLK, WM_NCCREATE, WM_POWERBROADCAST, WM_RBUTTONUP, WM_TIMER,
+    WNDCLASSEXW,
 };
 
 use crate::bridge::{Status, ToEngine, ToUi, UiHandle, WM_BRIDGE};
@@ -119,6 +120,14 @@ unsafe extern "system" fn wnd_proc(
         WM_COMMAND => {
             state.command(hwnd, wparam.0 & 0xffff);
             LRESULT(0)
+        }
+        WM_POWERBROADCAST => {
+            // After sleep or hibernate every socket is stale: restart the engine so peers
+            // reconnect at once instead of waiting for time-outs.
+            if wparam.0 == PBT_APMRESUMEAUTOMATIC as usize {
+                let _ = state.engine.send(ToEngine::Reload);
+            }
+            LRESULT(1)
         }
         WM_CLIPBOARDUPDATE => {
             state.clip.on_update(hwnd);

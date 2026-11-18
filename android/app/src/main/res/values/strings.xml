@@ -47,6 +47,9 @@
     <string name="settings_receive_files">Terima file</string>
     <string name="settings_autostart">Jalankan saat HP menyala</string>
     <string name="settings_share_log">Bagikan log</string>
+    <string name="transfers_title">Transfer berjalan</string>
+    <string name="transfer_cancel">Batal</string>
+    <string name="history_clear">Bersihkan riwayat</string>
     <string name="action_send_files">Kirim file</string>
     <string name="channel_transfers">Transfer file</string>
     <string name="transfer_received">%1$d file diterima, %2$d gagal</string>

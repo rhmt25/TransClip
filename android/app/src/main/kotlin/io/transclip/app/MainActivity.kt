@@ -97,6 +97,7 @@ class MainActivity : ComponentActivity() {
         val paired by AppState.paired.collectAsStateWithLifecycle()
         val paused by AppState.paused.collectAsStateWithLifecycle()
         val history by AppState.history.collectAsStateWithLifecycle()
+        val transfers by AppState.transfers.collectAsStateWithLifecycle()
         var code by remember(prefill) { mutableStateOf(prefill) }
         var message by remember { mutableStateOf("") }
         var invite by remember { mutableStateOf("") }
@@ -341,8 +342,24 @@ class MainActivity : ComponentActivity() {
                     Text(invite, style = MaterialTheme.typography.bodySmall)
                 }
             }
+            if (transfers.isNotEmpty()) {
+                item { Text(getString(R.string.transfers_title), style = MaterialTheme.typography.titleMedium) }
+                items(transfers) { t ->
+                    Column(Modifier.fillMaxWidth()) {
+                        Text((if (t.incoming) "↓ " else "↑ ") + t.name, style = MaterialTheme.typography.bodyMedium)
+                        androidx.compose.material3.LinearProgressIndicator(
+                            progress = { if (t.total > 0) (t.done.toFloat() / t.total).coerceIn(0f, 1f) else 0f },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        TextButton(onClick = { scope.launch { app.engine.cancelTransfer(t) } }) {
+                            Text(getString(R.string.transfer_cancel))
+                        }
+                    }
+                }
+            }
             if (history.isNotEmpty()) {
                 item { Text(getString(R.string.history_title), style = MaterialTheme.typography.titleMedium) }
+                item { TextButton(onClick = { AppState.clearHistory() }) { Text(getString(R.string.history_clear)) } }
                 items(history) { Text(it.text, style = MaterialTheme.typography.bodySmall) }
             }
         }

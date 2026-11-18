@@ -47,9 +47,10 @@ fn is_reserved(segment: &str) -> bool {
     let upper = stem.to_ascii_uppercase();
     match upper.as_str() {
         "CON" | "PRN" | "AUX" | "NUL" => true,
+        // Compare bytes: `split_at` would panic inside a multi-byte character.
         s if s.len() == 4 => {
-            let (prefix, digit) = s.split_at(3);
-            (prefix == "COM" || prefix == "LPT") && matches!(digit.as_bytes()[0], b'1'..=b'9')
+            let b = s.as_bytes();
+            (b.starts_with(b"COM") || b.starts_with(b"LPT")) && matches!(b[3], b'1'..=b'9')
         }
         _ => false,
     }

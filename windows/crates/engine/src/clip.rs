@@ -188,6 +188,7 @@ struct State {
     last_ts: u64,
     queues: HashMap<DeviceId, OfflineQueue>,
     pending: HashMap<(DeviceId, String), oneshot::Sender<AckResult>>,
+    rate: crate::ratelimit::PeerRate,
 }
 
 struct Inner {
@@ -270,6 +271,7 @@ impl ClipboardSync {
                 last_ts: 0,
                 queues: HashMap::new(),
                 pending: HashMap::new(),
+                rate: crate::ratelimit::PeerRate::default(),
             }),
             events,
         };
@@ -395,6 +397,9 @@ impl ClipboardSync {
             Ok(r) => r,
             Err(reason) => return reply(false, Some(reason)).await,
         };
+        if !inner.state().rate.allow(from, std::time::Instant::now()) {
+            return reply(false, Some("busy")).await;
+        }
         let apply = {
             let mut st = inner.state();
             let fresh = st.seen.insert(&remote.meta.id, now_ms());

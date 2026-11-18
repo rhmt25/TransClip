@@ -172,12 +172,15 @@ class ClipboardSync(
         }
     }
 
+    private val rate = PeerRate()
+
     private suspend fun onItem(from: DeviceId, message: Message, payload: ByteArray) {
         val (id, parsed) = parseItem(message, payload)
         suspend fun reply(ok: Boolean, reason: String? = null) {
             runCatching { mgr.send(from, Message.Ack(id, ok, reason)) }
         }
         val remote = parsed.getOrElse { return reply(false, it.message) }
+        if (!rate.allow(from, nowMs())) return reply(false, "busy")
         val apply = synchronized(lock) {
             val fresh = seen.insert(remote.meta.id, nowMs())
             remote.meta.origin != local &&
