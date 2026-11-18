@@ -103,7 +103,7 @@ pub struct Radial {
     shared: Arc<Shared>,
     overlay: HWND,
     peers: Vec<(DeviceId, String)>,
-    trigger_vk: i32,
+    trigger_vks: Vec<i32>,
     radius: u32,
     press: Option<POINT>,
     shown: bool,
@@ -139,7 +139,7 @@ impl Radial {
             }),
             overlay: HWND::default(),
             peers: Vec::new(),
-            trigger_vk: keys::name_to_vk(keys::DEFAULT),
+            trigger_vks: keys::vks_or_default(keys::DEFAULT),
             radius: 140,
             press: None,
             shown: false,
@@ -222,7 +222,7 @@ impl Radial {
 
     /// Trigger key name and ring radius from the settings.
     pub fn set_config(&mut self, trigger: &str, radius: u32) {
-        self.trigger_vk = keys::name_to_vk(trigger);
+        self.trigger_vks = keys::vks_or_default(trigger);
         self.radius = radius.clamp(60, 400);
     }
 
@@ -281,7 +281,7 @@ impl Radial {
         // SAFETY: GetSystemMetrics has no preconditions.
         let slop = unsafe { GetSystemMetrics(SM_CXDRAG) }.max(4);
         let moved = (cursor.x - start.x).abs().max((cursor.y - start.y).abs()) > slop;
-        if moved && key_down(self.trigger_vk) {
+        if moved && self.trigger_vks.iter().any(|vk| key_down(*vk)) {
             self.show(cursor);
         }
     }

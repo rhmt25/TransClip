@@ -53,7 +53,7 @@ impl Default for Config {
             receive_files: true,
             download_dir: String::new(),
             autostart: true,
-            radial_trigger: "RControl".into(),
+            radial_trigger: "Control".into(),
             radial_radius_px: 140,
             bt_priority_peers: Vec::new(),
             bt_inline_image_max: 2 * 1024 * 1024,
@@ -81,9 +81,9 @@ impl Config {
         if self.port < 1024 {
             self.port = defaults.port;
         }
-        if !crate::radial::keys::is_valid(&self.radial_trigger) {
-            self.radial_trigger = defaults.radial_trigger;
-        }
+        // Older versions stored left/right names; they become the shared spelling.
+        self.radial_trigger =
+            crate::radial::keys::canonical(&self.radial_trigger).unwrap_or(defaults.radial_trigger);
         self.radial_radius_px = self.radial_radius_px.clamp(60, 400);
         self.bt_inline_image_max = self.bt_inline_image_max.min(50 * 1024 * 1024);
         if !LOG_LEVELS.contains(&self.log_level.as_str()) {

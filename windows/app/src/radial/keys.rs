@@ -6,59 +6,76 @@
 use windows::Win32::UI::Input::KeyboardAndMouse::GetAsyncKeyState;
 
 /// Default trigger.
-pub const DEFAULT: &str = "RControl";
-const DEFAULT_VK: i32 = 0xA3;
+pub const DEFAULT: &str = "Control";
 
-const NAMED: &[(&str, i32)] = &[
-    ("LShift", 0xA0),
-    ("RShift", 0xA1),
-    ("LControl", 0xA2),
-    ("RControl", 0xA3),
-    ("LAlt", 0xA4),
-    ("RAlt", 0xA5),
-    ("Tab", 0x09),
-    ("CapsLock", 0x14),
-    ("Space", 0x20),
-    ("PageUp", 0x21),
-    ("PageDown", 0x22),
-    ("End", 0x23),
-    ("Home", 0x24),
-    ("Insert", 0x2D),
-    ("Delete", 0x2E),
-    ("LWin", 0x5B),
-    ("RWin", 0x5C),
-    ("Menu", 0x5D),
+/// Names with the virtual-key codes that count as "pressed". Left and right modifier keys are one
+/// trigger: pressing either side works.
+const NAMED: &[(&str, &[i32])] = &[
+    ("Shift", &[0x10]),
+    ("Control", &[0x11]),
+    ("Alt", &[0x12]),
+    ("Win", &[0x5B, 0x5C]),
+    ("Tab", &[0x09]),
+    ("CapsLock", &[0x14]),
+    ("Space", &[0x20]),
+    ("PageUp", &[0x21]),
+    ("PageDown", &[0x22]),
+    ("End", &[0x23]),
+    ("Home", &[0x24]),
+    ("Insert", &[0x2D]),
+    ("Delete", &[0x2E]),
+    ("Menu", &[0x5D]),
 ];
 
-/// Virtual-key code for a config name; unknown names give the default trigger.
-pub fn name_to_vk(name: &str) -> i32 {
-    if let Some((_, vk)) = NAMED.iter().find(|(n, _)| *n == name) {
-        return *vk;
+/// Names written by older versions, which told left and right apart.
+fn legacy(name: &str) -> &str {
+    match name {
+        "LShift" | "RShift" => "Shift",
+        "LControl" | "RControl" => "Control",
+        "LAlt" | "RAlt" => "Alt",
+        "LWin" | "RWin" => "Win",
+        other => other,
+    }
+}
+
+/// Virtual-key codes for a config name, or `None` when the name is not valid.
+pub fn name_to_vks(name: &str) -> Option<Vec<i32>> {
+    let name = legacy(name);
+    if let Some((_, vks)) = NAMED.iter().find(|(n, _)| *n == name) {
+        return Some(vks.to_vec());
     }
     if let Some(rest) = name.strip_prefix("VK:") {
-        if let Ok(v) = i32::from_str_radix(rest, 16) {
-            if (0x08..=0xFE).contains(&v) {
-                return v;
-            }
-        }
+        let v = i32::from_str_radix(rest, 16).ok()?;
+        return (0x08..=0xFE).contains(&v).then(|| vec![v]);
     }
     if let Some(n) = name.strip_prefix('F').and_then(|d| d.parse::<i32>().ok()) {
-        if (1..=24).contains(&n) {
-            return 0x70 + n - 1;
-        }
+        return (1..=24).contains(&n).then(|| vec![0x70 + n - 1]);
     }
     let mut chars = name.chars();
     if let (Some(c), None) = (chars.next(), chars.next()) {
         if c.is_ascii_uppercase() || c.is_ascii_digit() {
-            return c as i32;
+            return Some(vec![c as i32]);
         }
     }
-    DEFAULT_VK
+    None
 }
 
-/// Config name for a virtual-key code.
+/// Codes for a name; an invalid name gives the default trigger.
+pub fn vks_or_default(name: &str) -> Vec<i32> {
+    name_to_vks(name)
+        .or_else(|| name_to_vks(DEFAULT))
+        .unwrap_or_else(|| vec![0x11])
+}
+
+/// Config name for a virtual-key code (left and right variants share a name).
 pub fn vk_to_name(vk: i32) -> String {
-    if let Some((n, _)) = NAMED.iter().find(|(_, v)| *v == vk) {
+    let vk = match vk {
+        0xA0 | 0xA1 => 0x10,
+        0xA2 | 0xA3 => 0x11,
+        0xA4 | 0xA5 => 0x12,
+        other => other,
+    };
+    if let Some((n, _)) = NAMED.iter().find(|(_, v)| v.contains(&vk)) {
         return (*n).to_owned();
     }
     match vk {
@@ -68,24 +85,20 @@ pub fn vk_to_name(vk: i32) -> String {
     }
 }
 
-/// Text shown in the settings window.
-pub fn display(name: &str) -> String {
-    match name {
-        "LShift" => "Shift kiri".into(),
-        "RShift" => "Shift kanan".into(),
-        "LControl" => "Ctrl kiri".into(),
-        "RControl" => "Ctrl kanan".into(),
-        "LAlt" => "Alt kiri".into(),
-        "RAlt" => "Alt kanan".into(),
-        "LWin" => "Win kiri".into(),
-        "RWin" => "Win kanan".into(),
-        other => other.replace("VK:", "Tombol 0x"),
-    }
+/// The current spelling of a valid name (older names become the shared ones), else `None`.
+pub fn canonical(name: &str) -> Option<String> {
+    name_to_vks(name).map(|v| vk_to_name(v[0]))
 }
 
-/// True for names the radial menu accepts (anything [`name_to_vk`] round-trips).
-pub fn is_valid(name: &str) -> bool {
-    vk_to_name(name_to_vk(name)) == name
+/// Text shown in the settings window.
+pub fn display(name: &str) -> String {
+    match legacy(name) {
+        "Control" => "Ctrl (kiri atau kanan)".into(),
+        "Shift" => "Shift (kiri atau kanan)".into(),
+        "Alt" => "Alt (kiri atau kanan)".into(),
+        "Win" => "Win (kiri atau kanan)".into(),
+        other => other.replace("VK:", "Tombol 0x"),
+    }
 }
 
 fn down(vk: i32) -> bool {
@@ -121,19 +134,35 @@ mod tests {
     #[test]
     fn names_round_trip() {
         for name in [
-            "RControl", "LShift", "F1", "F12", "F24", "A", "Z", "0", "9", "Space", "VK:C0",
+            "Control", "Shift", "Alt", "Win", "F1", "F12", "F24", "A", "Z", "0", "9", "Space",
+            "VK:C0",
         ] {
-            assert_eq!(vk_to_name(name_to_vk(name)), name, "{name}");
+            assert_eq!(canonical(name).as_deref(), Some(name), "{name}");
         }
     }
 
     #[test]
-    fn unknown_names_fall_back_to_the_default() {
-        assert_eq!(name_to_vk("???"), DEFAULT_VK);
-        assert_eq!(name_to_vk("VK:ZZ"), DEFAULT_VK);
-        assert_eq!(name_to_vk("F99"), DEFAULT_VK);
-        assert!(!is_valid("???"));
-        assert!(is_valid("RControl"));
+    fn left_and_right_are_the_same_trigger() {
+        assert_eq!(vk_to_name(0xA2), vk_to_name(0xA3));
+        assert_eq!(vk_to_name(0xA2), "Control");
+        assert_eq!(vk_to_name(0xA0), "Shift");
+        assert_eq!(vk_to_name(0xA5), "Alt");
+        assert_eq!(vks_or_default("Win"), vec![0x5B, 0x5C]);
+    }
+
+    #[test]
+    fn older_config_names_are_upgraded() {
+        assert_eq!(canonical("RControl").as_deref(), Some("Control"));
+        assert_eq!(canonical("LShift").as_deref(), Some("Shift"));
+        assert_eq!(canonical("RAlt").as_deref(), Some("Alt"));
+    }
+
+    #[test]
+    fn invalid_names_fall_back_to_the_default() {
+        assert_eq!(canonical("???"), None);
+        assert_eq!(canonical("VK:ZZ"), None);
+        assert_eq!(canonical("F99"), None);
+        assert_eq!(vks_or_default("???"), vec![0x11]);
     }
 
     #[test]
@@ -147,7 +176,8 @@ mod tests {
 
     #[test]
     fn display_is_readable() {
-        assert_eq!(display("RControl"), "Ctrl kanan");
+        assert_eq!(display("Control"), "Ctrl (kiri atau kanan)");
+        assert_eq!(display("RControl"), "Ctrl (kiri atau kanan)");
         assert_eq!(display("F8"), "F8");
         assert_eq!(display("VK:C0"), "Tombol 0xC0");
     }
