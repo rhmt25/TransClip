@@ -34,7 +34,8 @@ impl Layout {
 
 const BASE: (u8, u8, u8, u8) = (38, 42, 50, 225);
 const HOT: (u8, u8, u8, u8) = (0, 120, 215, 240);
-const CANCEL: (u8, u8, u8, u8) = (90, 90, 96, 120);
+const CANCEL: (u8, u8, u8, u8) = (70, 70, 76, 200);
+const CANCEL_HOT: (u8, u8, u8, u8) = (196, 54, 54, 245);
 const LINE: (u8, u8, u8, u8) = (10, 10, 12, 255);
 
 fn premultiply(c: (u8, u8, u8, u8), coverage: f64) -> [u8; 4] {
@@ -54,7 +55,7 @@ pub fn render(layout: &Layout, n: usize, highlight: Option<usize>, cancel_hot: b
             let dy = y as f64 + 0.5 - layout.centre;
             let d = dx.hypot(dy);
             let out = if d < layout.inner - 0.5 {
-                let c = if cancel_hot { HOT } else { CANCEL };
+                let c = if cancel_hot { CANCEL_HOT } else { CANCEL };
                 premultiply(c, 1.0)
             } else if d <= layout.outer + 0.5 && n > 0 {
                 // Soft edges: one pixel of coverage falloff on both radii.

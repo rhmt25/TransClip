@@ -8,6 +8,7 @@
 
 mod drop_target;
 pub mod geometry;
+pub mod keys;
 pub mod render;
 
 use std::sync::atomic::{AtomicI32, AtomicIsize, Ordering};
@@ -24,10 +25,7 @@ use windows::Win32::Graphics::Gdi::{
 };
 use windows::Win32::System::Ole::{OleInitialize, RegisterDragDrop, RevokeDragDrop};
 use windows::Win32::UI::HiDpi::GetDpiForSystem;
-use windows::Win32::UI::Input::KeyboardAndMouse::{
-    GetAsyncKeyState, VK_ESCAPE, VK_LBUTTON, VK_LCONTROL, VK_LMENU, VK_LSHIFT, VK_RCONTROL,
-    VK_RMENU, VK_RSHIFT,
-};
+use windows::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState, VK_ESCAPE, VK_LBUTTON};
 use windows::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, DefWindowProcW, DestroyWindow, GetCursorPos, GetSystemMetrics,
     RegisterClassExW, SetWindowPos, ShowWindow, UpdateLayeredWindow, HWND_TOPMOST, SM_CXDRAG,
@@ -81,18 +79,6 @@ pub fn label_for(name: &str) -> String {
         format!("{}…", head.trim_end())
     } else {
         head
-    }
-}
-
-/// Virtual-key code for a trigger name from the config file.
-pub fn vk_from_name(name: &str) -> i32 {
-    match name {
-        "LControl" => i32::from(VK_LCONTROL.0),
-        "LShift" => i32::from(VK_LSHIFT.0),
-        "RShift" => i32::from(VK_RSHIFT.0),
-        "LAlt" => i32::from(VK_LMENU.0),
-        "RAlt" => i32::from(VK_RMENU.0),
-        _ => i32::from(VK_RCONTROL.0),
     }
 }
 
@@ -153,7 +139,7 @@ impl Radial {
             }),
             overlay: HWND::default(),
             peers: Vec::new(),
-            trigger_vk: i32::from(VK_RCONTROL.0),
+            trigger_vk: keys::name_to_vk(keys::DEFAULT),
             radius: 140,
             press: None,
             shown: false,
@@ -236,7 +222,7 @@ impl Radial {
 
     /// Trigger key name and ring radius from the settings.
     pub fn set_config(&mut self, trigger: &str, radius: u32) {
-        self.trigger_vk = vk_from_name(trigger);
+        self.trigger_vk = keys::name_to_vk(trigger);
         self.radius = radius.clamp(60, 400);
     }
 
@@ -474,6 +460,52 @@ impl Radial {
                     DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX,
                 );
             }
+            // The centre disc is the cancel drop zone: a cross and a label.
+            let mut cross: Vec<u16> = "\u{00D7}".encode_utf16().collect();
+            let big = CreateFontW(
+                (34.0 * scale).round() as i32,
+                0,
+                0,
+                0,
+                400,
+                0,
+                0,
+                0,
+                DEFAULT_CHARSET,
+                Default::default(),
+                Default::default(),
+                Default::default(),
+                0,
+                w!("Segoe UI"),
+            );
+            let prev = SelectObject(mem, big.into());
+            let mut cross_rect = RECT {
+                left: (layout.centre - layout.inner) as i32,
+                top: (layout.centre - layout.inner * 0.95) as i32,
+                right: (layout.centre + layout.inner) as i32,
+                bottom: layout.centre as i32,
+            };
+            DrawTextW(
+                mem,
+                &mut cross,
+                &mut cross_rect,
+                DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX,
+            );
+            SelectObject(mem, prev);
+            let _ = DeleteObject(big.into());
+            let mut cancel: Vec<u16> = "Batal".encode_utf16().collect();
+            let mut cancel_rect = RECT {
+                left: (layout.centre - layout.inner) as i32,
+                top: layout.centre as i32,
+                right: (layout.centre + layout.inner) as i32,
+                bottom: (layout.centre + layout.inner * 0.55) as i32,
+            };
+            DrawTextW(
+                mem,
+                &mut cancel,
+                &mut cancel_rect,
+                DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX,
+            );
             SelectObject(mem, old_font);
             let _ = DeleteObject(font.into());
 
@@ -517,13 +549,5 @@ mod tests {
             label_for("日本語日本語日本語日本語日本語"),
             "日本語日本語日本語日本語日本…"
         );
-    }
-
-    #[test]
-    fn trigger_names_map_to_virtual_keys() {
-        assert_eq!(vk_from_name("RControl"), i32::from(VK_RCONTROL.0));
-        assert_eq!(vk_from_name("LShift"), i32::from(VK_LSHIFT.0));
-        // Unknown names fall back to the default.
-        assert_eq!(vk_from_name("???"), i32::from(VK_RCONTROL.0));
     }
 }

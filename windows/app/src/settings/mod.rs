@@ -189,6 +189,8 @@ struct SettingsApp {
     peer_ids: Vec<String>,
     revoke: Vec<bool>,
     confirm_rotate: bool,
+    recording_key: bool,
+    record_armed: bool,
     pairing: Option<Pairing>,
     join_text: String,
     message: String,
@@ -208,6 +210,8 @@ impl SettingsApp {
             peer_ids: Vec::new(),
             revoke: Vec::new(),
             confirm_rotate: false,
+            recording_key: false,
+            record_armed: false,
             pairing: None,
             join_text: String::new(),
             message: String::new(),
@@ -485,22 +489,51 @@ impl SettingsApp {
         }
     }
 
+    /// While recording, watch the keyboard (the window does not need focus) and store the first key.
+    fn poll_key_recording(&mut self, ctx: &egui::Context) {
+        use crate::radial::keys;
+        if !self.recording_key {
+            return;
+        }
+        ctx.request_repaint_after(Duration::from_millis(30));
+        if !self.record_armed {
+            self.record_armed = !keys::any_held() && !keys::escape_down();
+            return;
+        }
+        if keys::escape_down() {
+            self.recording_key = false;
+            return;
+        }
+        if let Some(vk) = keys::pressed_key() {
+            self.recording_key = false;
+            self.set_config(json!({ "radial_trigger": keys::vk_to_name(vk) }));
+        }
+    }
+
     fn ui_radial(&mut self, ui: &mut egui::Ui) {
         ui.label("Tahan klik kiri, seret file, lalu tekan tombol pemicu: lingkaran perangkat muncul di kursor. Lepas file di atas perangkat tujuan.");
-        let mut trigger = self.config.radial_trigger.clone();
+        self.poll_key_recording(ui.ctx());
         ui.horizontal(|ui| {
-            ui.label("Tombol pemicu");
-            egui::ComboBox::from_id_salt("radial-trigger")
-                .selected_text(&trigger)
-                .show_ui(ui, |ui| {
-                    for t in ["RControl", "LControl", "RShift", "LShift", "RAlt", "LAlt"] {
-                        ui.selectable_value(&mut trigger, t.to_owned(), t);
-                    }
-                });
+            ui.label("Tombol pemicu:");
+            if self.recording_key {
+                ui.colored_label(
+                    egui::Color32::from_rgb(200, 90, 30),
+                    "Tekan tombol yang diinginkan… (Esc membatalkan)",
+                );
+            } else {
+                ui.monospace(crate::radial::keys::display(&self.config.radial_trigger));
+                if ui.button("Rekam tombol").clicked() {
+                    self.recording_key = true;
+                    // Wait until everything is released so the click itself is not recorded.
+                    self.record_armed = false;
+                }
+                if self.config.radial_trigger != crate::radial::keys::DEFAULT
+                    && ui.button("Reset").clicked()
+                {
+                    self.set_config(json!({ "radial_trigger": crate::radial::keys::DEFAULT }));
+                }
+            }
         });
-        if trigger != self.config.radial_trigger {
-            self.set_config(json!({ "radial_trigger": trigger }));
-        }
         let mut radius = self.config.radial_radius_px;
         if ui
             .add(egui::Slider::new(&mut radius, 60..=400).text("Radius (px)"))

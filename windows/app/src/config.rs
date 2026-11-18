@@ -81,6 +81,9 @@ impl Config {
         if self.port < 1024 {
             self.port = defaults.port;
         }
+        if !crate::radial::keys::is_valid(&self.radial_trigger) {
+            self.radial_trigger = defaults.radial_trigger;
+        }
         self.radial_radius_px = self.radial_radius_px.clamp(60, 400);
         self.bt_inline_image_max = self.bt_inline_image_max.min(50 * 1024 * 1024);
         if !LOG_LEVELS.contains(&self.log_level.as_str()) {
