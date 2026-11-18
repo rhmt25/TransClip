@@ -37,6 +37,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.transclip.app.R
 
+/** Tighter than the Material default (24 dp) so labels fit before they would need an ellipsis. */
+private val ButtonPad = androidx.compose.foundation.layout.PaddingValues(horizontal = 14.dp, vertical = 8.dp)
+
 /** 1 dp rule used instead of cards to structure a screen. */
 @Composable
 fun Rule(modifier: Modifier = Modifier) {
@@ -109,13 +112,14 @@ fun PrimaryButton(text: String, modifier: Modifier = Modifier, enabled: Boolean 
         modifier = modifier.heightIn(min = 44.dp),
         enabled = enabled,
         shape = RoundedCornerShape(6.dp),
+        contentPadding = ButtonPad,
         colors = ButtonDefaults.buttonColors(
             containerColor = t.accent,
             contentColor = t.onAccent,
             disabledContainerColor = t.subtle,
             disabledContentColor = t.text2,
         ),
-    ) { Text(text, fontWeight = FontWeight.Medium) }
+    ) { Text(text, fontWeight = FontWeight.Medium, maxLines = 2, textAlign = androidx.compose.ui.text.style.TextAlign.Center) }
 }
 
 @Composable
@@ -127,8 +131,9 @@ fun SecondaryButton(text: String, modifier: Modifier = Modifier, enabled: Boolea
         enabled = enabled,
         shape = RoundedCornerShape(6.dp),
         border = BorderStroke(1.dp, t.border),
+        contentPadding = ButtonPad,
         colors = ButtonDefaults.outlinedButtonColors(contentColor = t.text),
-    ) { Text(text, fontWeight = FontWeight.Medium) }
+    ) { Text(text, fontWeight = FontWeight.Medium, maxLines = 2, textAlign = androidx.compose.ui.text.style.TextAlign.Center) }
 }
 
 @Composable
@@ -139,8 +144,9 @@ fun DangerButton(text: String, modifier: Modifier = Modifier, onClick: () -> Uni
         modifier = modifier.heightIn(min = 44.dp),
         shape = RoundedCornerShape(6.dp),
         border = BorderStroke(1.dp, t.err),
+        contentPadding = ButtonPad,
         colors = ButtonDefaults.outlinedButtonColors(contentColor = t.err),
-    ) { Text(text, fontWeight = FontWeight.Medium) }
+    ) { Text(text, fontWeight = FontWeight.Medium, maxLines = 2, textAlign = androidx.compose.ui.text.style.TextAlign.Center) }
 }
 
 /** Connection state dot. */

@@ -34,6 +34,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailItem
+import androidx.compose.material3.NavigationRailItemDefaults
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.Scaffold
@@ -133,10 +137,13 @@ class MainActivity : ComponentActivity() {
         val transfers by AppState.transfers.collectAsStateWithLifecycle()
 
         var tab by rememberSaveable { mutableIntStateOf(0) }
-        var pairingOpen by remember { mutableStateOf(false) }
-        var code by remember(prefill) { mutableStateOf(prefill) }
-        var invite by remember { mutableStateOf("") }
-        var inviteExpiresAt by remember { mutableLongStateOf(0L) }
+        // Saved so that rotating the device keeps the sheet, the typed code and the QR.
+        var pairingOpen by rememberSaveable { mutableStateOf(false) }
+        var code by rememberSaveable(prefill) { mutableStateOf(prefill) }
+        var invite by rememberSaveable { mutableStateOf("") }
+        var inviteExpiresAt by rememberSaveable { mutableLongStateOf(0L) }
+        // Two panes and a side rail from 600 dp wide (tablets, landscape phones).
+        val wide = LocalConfiguration.current.screenWidthDp >= 600
         val snackbar = remember { SnackbarHostState() }
         fun say(text: String) {
             scope.launch {
@@ -407,7 +414,7 @@ class MainActivity : ComponentActivity() {
                     )
                 },
                 bottomBar = {
-                    NavigationBar(containerColor = t.surface, tonalElevation = 0.dp) {
+                    if (!wide) NavigationBar(containerColor = t.surface, tonalElevation = 0.dp) {
                         val colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = t.accent,
                             selectedTextColor = t.text,
@@ -432,10 +439,37 @@ class MainActivity : ComponentActivity() {
                     }
                 },
             ) { inner ->
-                Column(Modifier.padding(inner).fillMaxSize()) {
-                    when (tab) {
-                        0 -> HomeScreen(peers, paired, paused, autoOn, transfers, history, home)
-                        else -> SettingsScreen(settings, peers, autoOn, targetLabel, themeMode, settingsActions)
+                Row(Modifier.padding(inner).fillMaxSize()) {
+                    if (wide) {
+                        NavigationRail(containerColor = t.surface) {
+                            val colors = NavigationRailItemDefaults.colors(
+                                selectedIconColor = t.accent,
+                                selectedTextColor = t.text,
+                                indicatorColor = t.subtle,
+                                unselectedIconColor = t.text2,
+                                unselectedTextColor = t.text2,
+                            )
+                            NavigationRailItem(
+                                selected = tab == 0,
+                                onClick = { tab = 0 },
+                                icon = { Icon(Icons.Filled.Home, contentDescription = null) },
+                                label = { Text(stringResource(R.string.nav_home)) },
+                                colors = colors,
+                            )
+                            NavigationRailItem(
+                                selected = tab == 1,
+                                onClick = { tab = 1 },
+                                icon = { Icon(Icons.Filled.Settings, contentDescription = null) },
+                                label = { Text(stringResource(R.string.nav_settings)) },
+                                colors = colors,
+                            )
+                        }
+                    }
+                    Column(Modifier.weight(1f).fillMaxSize()) {
+                        when (tab) {
+                            0 -> HomeScreen(peers, paired, paused, autoOn, transfers, history, wide, home)
+                            else -> SettingsScreen(settings, peers, autoOn, targetLabel, themeMode, wide, settingsActions)
+                        }
                     }
                 }
             }

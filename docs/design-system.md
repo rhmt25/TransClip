@@ -35,3 +35,9 @@ Kontras teks di atas aksen: 7:1 di tema gelap; di tema terang 2,8:1 (putih di `#
 - Teks dipangkas; penjelasan panjang dipindah ke tooltip atau dihapus.
 - Kontrol sesuai fungsi: *switch* untuk pengaturan aktif/nonaktif, *checkbox* untuk memilih beberapa item (mis. perangkat yang dicabut).
 - Ikon aplikasi (`.exe`, tray, jendela, launcher Android) memakai `Icon_bg_putih.png` dengan latar putih (launcher: latar adaptif `#FEFEFE` agar tidak hitam); logo di dalam aplikasi memakai `Icon.png` yang transparan.
+
+## Revisi 3
+- Hapus elemen dekoratif: tab berblok, angka besar jumlah perangkat, kartu hero, lencana bernomor. Tab Windows memakai garis bawah aksen; status berupa satu kalimat dengan titik status.
+- **Responsif Windows:** < 820 px satu kolom (perangkat lalu panel pairing; pengaturan bertumpuk), >= 820 px dua kolom; header memindahkan tab ke baris sendiri < 620 px; tile perangkat membagi lebar baris secara merata; lebar minimum jendela 400 pt.
+- **Responsif Android:** < 600 dp satu kolom dengan navigasi bawah; >= 600 dp (tablet, ponsel landscape) navigasi rail di kiri dan dua panel (perangkat+aksi | transfer+aktivitas; pengaturan dua kolom). Kartu perangkat berupa grid kolom sama (2 kolom ponsel, 3 kolom lebar), tanpa scroll horizontal. Rotasi aman: tab, lembar pairing, kode, dan QR memakai `rememberSaveable`.
+- Label tombol tidak dipotong dengan elipsis: padding tombol 14 dp, teks boleh dua baris, nama perangkat boleh dua baris.

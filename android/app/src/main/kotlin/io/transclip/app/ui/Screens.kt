@@ -2,7 +2,6 @@ package io.transclip.app.ui
 
 import android.graphics.Bitmap
 import android.graphics.Color as AndroidColor
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -10,17 +9,13 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -46,7 +41,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.qrcode.QRCodeWriter
@@ -66,11 +60,21 @@ private fun deviceIcon(platform: String) = if (platform == "android") R.drawable
 
 /** Round tinted badge that holds an icon. */
 @Composable
-private fun IconBadge(icon: Int, tint: Color, size: Int = 44) {
+private fun IconBadge(icon: Int, tint: Color, size: Int = 40) {
     Box(
         Modifier.size(size.dp).clip(CircleShape).background(tint.copy(alpha = if (tokens.dark) 0.16f else 0.12f)),
         contentAlignment = Alignment.Center,
     ) { Icon(painterResource(icon), contentDescription = null, tint = tint, modifier = Modifier.size((size * 0.5f).dp)) }
+}
+
+/** Surface with a 1 dp border: the only container style (never nested). */
+@Composable
+private fun Bordered(modifier: Modifier = Modifier, padding: Int = 14, content: @Composable () -> Unit) {
+    val t = tokens
+    Column(
+        modifier.clip(RoundedCornerShape(8.dp)).background(t.surface).border(1.dp, t.border, RoundedCornerShape(8.dp)).padding(padding.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) { content() }
 }
 
 // ------------------------------------------------------------------------------------- Home
@@ -84,6 +88,10 @@ class HomeActions(
     val openPairing: () -> Unit,
 )
 
+/**
+ * One column on phones (portrait), two panes from 600 dp wide (tablets, landscape): devices and
+ * actions on the left, transfers and activity on the right.
+ */
 @Composable
 fun HomeScreen(
     peers: List<PeerStatus>,
@@ -92,180 +100,122 @@ fun HomeScreen(
     autoOn: Boolean,
     transfers: List<ActiveTransfer>,
     history: List<HistoryEntry>,
+    wide: Boolean,
     actions: HomeActions,
 ) {
+    val main: @Composable () -> Unit = {
+        StatusStrip(peers, paired, paused, autoOn, actions)
+        if (paired) {
+            ActionButtons(actions)
+            DevicesSection(peers, columns = if (wide) 3 else 2, actions)
+        } else {
+            EmptyState(stringResource(R.string.home_not_paired_title), stringResource(R.string.home_not_paired_body)) {
+                PrimaryButton(stringResource(R.string.home_go_pairing), onClick = actions.openPairing)
+            }
+        }
+    }
+    val side: @Composable () -> Unit = {
+        if (paired) {
+            TransfersSection(transfers, actions)
+            ActivitySection(history, actions)
+        }
+    }
+    if (wide) {
+        Row(Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(28.dp)) {
+            Column(Modifier.weight(1.5f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(18.dp)) { main() }
+            Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(18.dp)) { side() }
+        }
+    } else {
+        Column(Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 8.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+            main()
+            side()
+            Spacer(Modifier.height(8.dp))
+        }
+    }
+}
+
+/** Plain status line: dot, sentence, and the pause control. No big numbers, no hero card. */
+@Composable
+private fun StatusStrip(peers: List<PeerStatus>, paired: Boolean, paused: Boolean, autoOn: Boolean, actions: HomeActions) {
     val t = tokens
     val online = peers.count { it.state == PeerState.ONLINE }
-    LazyColumn(Modifier.fillMaxWidth(), contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        // --- hero: how many devices are connected, shown as overlapping avatars
-        item {
-            Column(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(t.surface)
-                    .border(1.dp, t.border, RoundedCornerShape(8.dp)).padding(18.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Text(
-                        if (paired) online.toString() else "–",
-                        style = MaterialTheme.typography.displayMedium,
-                        color = if (online > 0 && !paused) t.accent else t.text2,
-                    )
-                    Column(Modifier.weight(1f)) {
-                        Text(
-                            when {
-                                !paired -> stringResource(R.string.home_not_paired_title)
-                                paused -> stringResource(R.string.status_paused)
-                                online > 0 -> pluralStringResource(R.plurals.status_online, online, online).substringAfter(' ')
-                                else -> stringResource(R.string.status_waiting)
-                            },
-                            style = MaterialTheme.typography.titleMedium,
-                        )
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            StatusDot(if (!paired) t.text2 else if (paused) t.warn else if (autoOn) t.ok else t.warn)
-                            Text(
-                                stringResource(if (!paired) R.string.home_not_paired_hint else if (autoOn) R.string.status_auto_on else R.string.status_auto_off),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = t.text2,
-                            )
-                        }
-                    }
-                    if (peers.isNotEmpty()) {
-                        Row(horizontalArrangement = Arrangement.spacedBy((-10).dp)) {
-                            peers.take(3).forEach { p ->
-                                Box(
-                                    Modifier.size(36.dp).clip(CircleShape).background(t.canvas)
-                                        .border(2.dp, if (p.state == PeerState.ONLINE) t.ok else t.border, CircleShape),
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    Icon(painterResource(deviceIcon(p.platform)), null, tint = t.text, modifier = Modifier.size(18.dp))
-                                }
-                            }
-                        }
-                    }
-                }
-                if (!paired) PrimaryButton(stringResource(R.string.home_go_pairing), Modifier.fillMaxWidth(), onClick = actions.openPairing)
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        StatusDot(if (!paired) t.text2 else if (paused) t.warn else if (online > 0) t.ok else t.warn)
+        Column(Modifier.weight(1f)) {
+            Text(
+                when {
+                    !paired -> stringResource(R.string.home_not_paired_title)
+                    paused -> stringResource(R.string.status_paused)
+                    online > 0 -> pluralStringResource(R.plurals.status_online, online, online)
+                    else -> stringResource(R.string.status_waiting)
+                },
+                style = MaterialTheme.typography.titleMedium,
+            )
+            if (paired) {
+                Text(
+                    stringResource(if (autoOn) R.string.status_auto_on else R.string.status_auto_off),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = t.text2,
+                )
             }
         }
-
         if (paired) {
-            // --- two big action tiles
-            item {
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    ActionTile(R.drawable.ic_clipboard, stringResource(R.string.action_send_clip), Modifier.weight(1f), actions.sendClipboard)
-                    ActionTile(R.drawable.ic_upload, stringResource(R.string.action_send_files), Modifier.weight(1f), actions.pickFiles)
-                    ActionTile(
-                        if (paused) R.drawable.ic_play else R.drawable.ic_pause,
-                        stringResource(if (paused) R.string.action_resume else R.string.action_pause),
-                        Modifier.weight(1f),
-                        actions.togglePause,
-                        tint = t.warn,
-                    )
-                }
+            TextButton(onClick = actions.togglePause) {
+                Text(stringResource(if (paused) R.string.action_resume else R.string.action_pause), color = t.text2)
             }
+        }
+    }
+}
 
-            // --- devices as a horizontal carousel of cards
-            item {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text(stringResource(R.string.section_devices), style = MaterialTheme.typography.titleSmall, color = t.text2, modifier = Modifier.weight(1f))
-                    TextButton(onClick = actions.openPairing) { Text("+ " + stringResource(R.string.home_add_device), color = t.accent) }
-                }
-                if (peers.isEmpty()) {
-                    DeviceCardShell(Modifier.fillMaxWidth().clickable(onClick = actions.openPairing)) {
-                        IconBadge(R.drawable.ic_plus, t.text2)
-                        Text(stringResource(R.string.devices_empty_title), style = MaterialTheme.typography.titleMedium)
-                        Text(stringResource(R.string.devices_empty_body), style = MaterialTheme.typography.bodySmall, color = t.text2)
-                    }
-                } else {
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        items(peers, key = { it.id.toHex() }) { p -> DeviceCard(p) }
-                    }
-                }
+@Composable
+private fun ActionButtons(actions: HomeActions) {
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        PrimaryButton(stringResource(R.string.action_send_clip), Modifier.weight(1f), onClick = actions.sendClipboard)
+        SecondaryButton(stringResource(R.string.action_send_files), Modifier.weight(1f), onClick = actions.pickFiles)
+    }
+}
+
+@Composable
+private fun DevicesSection(peers: List<PeerStatus>, columns: Int, actions: HomeActions) {
+    val t = tokens
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(R.string.section_devices), style = MaterialTheme.typography.titleSmall, color = t.text2, modifier = Modifier.weight(1f))
+            TextButton(onClick = actions.openPairing) { Text(stringResource(R.string.home_add_device), color = t.accent) }
+        }
+        if (peers.isEmpty()) {
+            Bordered(Modifier.fillMaxWidth().clickable(onClick = actions.openPairing)) {
+                Text(stringResource(R.string.devices_empty_title), style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(R.string.devices_empty_body), style = MaterialTheme.typography.bodySmall, color = t.text2)
             }
-
-            if (transfers.isNotEmpty()) {
-                items(transfers, key = { it.xferId }) { tr ->
-                    Column(
-                        Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(t.surface)
-                            .border(1.dp, t.border, RoundedCornerShape(8.dp)).padding(14.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                (if (tr.incoming) "↓  " else "↑  ") + tr.name,
-                                Modifier.weight(1f),
-                                style = MaterialTheme.typography.bodyMedium,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                            Text(if (tr.total > 0) "${(tr.done * 100 / tr.total).coerceIn(0, 100)}%" else "", style = Mono, color = t.text2)
-                            TextButton(onClick = { actions.cancel(tr) }) { Text(stringResource(R.string.transfer_cancel), color = t.err) }
-                        }
-                        LinearProgressIndicator(
-                            progress = { if (tr.total > 0) (tr.done.toFloat() / tr.total).coerceIn(0f, 1f) else 0f },
-                            modifier = Modifier.fillMaxWidth(),
-                            color = t.accent,
-                            trackColor = t.subtle,
-                        )
-                    }
-                }
-            }
-
-            // --- recent activity, short
-            if (history.isNotEmpty()) {
-                item {
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Text(stringResource(R.string.section_activity), style = MaterialTheme.typography.titleSmall, color = t.text2, modifier = Modifier.weight(1f))
-                        TextButton(onClick = actions.clearHistory) { Text(stringResource(R.string.history_clear), color = t.text2) }
-                    }
-                    Rule()
-                }
-                items(history.take(5)) { h ->
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(h.time)), style = Mono, color = t.text2)
-                        Text(h.text, style = MaterialTheme.typography.bodyMedium)
-                    }
+        } else {
+            // A fixed number of equal columns that reflow with the screen; no horizontal scrolling.
+            peers.chunked(columns).forEach { row ->
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    row.forEach { p -> DeviceCard(p, Modifier.weight(1f)) }
+                    repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
                 }
             }
         }
-        item { Spacer(Modifier.height(12.dp)) }
     }
 }
 
 @Composable
-private fun ActionTile(icon: Int, label: String, modifier: Modifier, onClick: () -> Unit, tint: Color = tokens.accent) {
-    val t = tokens
-    Column(
-        modifier.clip(RoundedCornerShape(8.dp)).background(t.surface).border(1.dp, t.border, RoundedCornerShape(8.dp))
-            .clickable(onClick = onClick).padding(vertical = 16.dp, horizontal = 8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        IconBadge(icon, tint)
-        Text(label, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-    }
-}
-
-@Composable
-private fun DeviceCardShell(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
-    val t = tokens
-    Column(
-        modifier.clip(RoundedCornerShape(8.dp)).background(t.surface).border(1.dp, t.border, RoundedCornerShape(8.dp)).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) { content() }
-}
-
-@Composable
-private fun DeviceCard(p: PeerStatus) {
+private fun DeviceCard(p: PeerStatus, modifier: Modifier) {
     val t = tokens
     val colour = when (p.state) {
         PeerState.ONLINE -> t.ok
         PeerState.CONNECTING -> t.warn
         PeerState.OFFLINE -> t.text2
     }
-    DeviceCardShell(Modifier.width(176.dp)) {
-        IconBadge(deviceIcon(p.platform), if (p.state == PeerState.ONLINE) t.accent else t.text2)
-        Text(p.title(), style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Text(p.id.toHex().take(8), style = Mono, color = t.text2)
+    Bordered(modifier) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            IconBadge(deviceIcon(p.platform), if (p.state == PeerState.ONLINE) t.accent else t.text2, 36)
+            Column(Modifier.weight(1f)) {
+                Text(p.title(), style = MaterialTheme.typography.titleMedium, maxLines = 2)
+                Text(p.id.toHex().take(8), style = Mono, color = t.text2)
+            }
+        }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             StatusDot(colour)
             when (p.transport) {
@@ -276,6 +226,51 @@ private fun DeviceCard(p: PeerStatus) {
                     style = MaterialTheme.typography.bodySmall,
                     color = t.text2,
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TransfersSection(transfers: List<ActiveTransfer>, actions: HomeActions) {
+    val t = tokens
+    if (transfers.isEmpty()) return
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text(stringResource(R.string.transfers_title), style = MaterialTheme.typography.titleSmall, color = t.text2)
+        transfers.forEach { tr ->
+            Bordered(Modifier.fillMaxWidth()) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text((if (tr.incoming) "↓  " else "↑  ") + tr.name, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 2)
+                    Text(if (tr.total > 0) "${(tr.done * 100 / tr.total).coerceIn(0, 100)}%" else "", style = Mono, color = t.text2)
+                }
+                LinearProgressIndicator(
+                    progress = { if (tr.total > 0) (tr.done.toFloat() / tr.total).coerceIn(0f, 1f) else 0f },
+                    modifier = Modifier.fillMaxWidth(),
+                    color = t.accent,
+                    trackColor = t.subtle,
+                )
+                TextButton(onClick = { actions.cancel(tr) }) { Text(stringResource(R.string.transfer_cancel), color = t.err) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ActivitySection(history: List<HistoryEntry>, actions: HomeActions) {
+    val t = tokens
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(R.string.section_activity), style = MaterialTheme.typography.titleSmall, color = t.text2, modifier = Modifier.weight(1f))
+            if (history.isNotEmpty()) TextButton(onClick = actions.clearHistory) { Text(stringResource(R.string.history_clear), color = t.text2) }
+        }
+        Rule()
+        if (history.isEmpty()) {
+            Text(stringResource(R.string.activity_empty), Modifier.padding(vertical = 8.dp), style = MaterialTheme.typography.bodySmall, color = t.text2)
+        }
+        history.take(6).forEach { h ->
+            Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(h.time)), style = Mono, color = t.text2)
+                Text(h.text, style = MaterialTheme.typography.bodyMedium)
             }
         }
     }
@@ -303,7 +298,7 @@ fun PairingContent(
     val t = tokens
     Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Text(stringResource(R.string.home_add_device), style = MaterialTheme.typography.titleLarge)
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             PrimaryButton(stringResource(R.string.pairing_scan), Modifier.weight(1f), onClick = actions.scan)
             SecondaryButton(
                 stringResource(if (invite.isEmpty()) R.string.pairing_show_code else R.string.pairing_refresh_code),
@@ -347,9 +342,7 @@ fun PairingContent(
             )
             SecondaryButton(stringResource(R.string.pairing_join), enabled = code.isNotBlank(), onClick = { actions.join(code) })
         }
-        if (paired) {
-            DangerButton(stringResource(R.string.rotate_title), Modifier.fillMaxWidth(), onClick = actions.rotate)
-        }
+        if (paired) DangerButton(stringResource(R.string.rotate_title), Modifier.fillMaxWidth(), onClick = actions.rotate)
         Spacer(Modifier.height(24.dp))
     }
 }
@@ -377,15 +370,14 @@ class SettingsActions(
     val setTheme: (ThemeMode) -> Unit,
 )
 
-/** One switch with its label inside a bordered tile; two of them sit side by side. */
+/** A switch with its label; the label wraps instead of being cut. */
 @Composable
 private fun SwitchTile(label: String, checked: Boolean, modifier: Modifier, onChange: (Boolean) -> Unit) {
-    val t = tokens
     Row(
-        modifier.clip(RoundedCornerShape(8.dp)).background(t.surface).border(1.dp, t.border, RoundedCornerShape(8.dp))
-            .padding(horizontal = 14.dp, vertical = 12.dp),
+        modifier.clip(RoundedCornerShape(8.dp)).background(tokens.surface).border(1.dp, tokens.border, RoundedCornerShape(8.dp))
+            .padding(horizontal = 14.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Text(label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
         AppSwitch(checked, onChange)
@@ -399,59 +391,82 @@ fun SettingsScreen(
     autoOn: Boolean,
     targetLabel: String,
     themeMode: ThemeMode,
+    wide: Boolean,
     actions: SettingsActions,
 ) {
-    val t = tokens
     val s = settings ?: return
+    val t = tokens
     var name by remember(s.deviceName) { mutableStateOf(s.deviceName) }
     val version = LocalContext.current.let { c -> runCatching { c.packageManager.getPackageInfo(c.packageName, 0).versionName }.getOrNull().orEmpty() }
-    Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        SectionTitle(stringResource(R.string.settings_device))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            OutlinedTextField(name, { name = it }, Modifier.weight(1f), singleLine = true, shape = RoundedCornerShape(6.dp))
-            SecondaryButton(stringResource(R.string.settings_apply), enabled = name.isNotBlank() && name != s.deviceName, onClick = { actions.applyName(name) })
-        }
 
-        SectionTitle(stringResource(R.string.settings_sync))
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            SwitchTile(stringResource(R.string.settings_sync_text), s.syncText, Modifier.weight(1f), actions.setSyncText)
-            SwitchTile(stringResource(R.string.settings_sync_images), s.syncImages, Modifier.weight(1f), actions.setSyncImages)
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            SwitchTile(stringResource(R.string.settings_receive_files), s.receiveFiles, Modifier.weight(1f), actions.setReceiveFiles)
-            SwitchTile(stringResource(R.string.settings_screenshots), s.autoScreenshots, Modifier.weight(1f), actions.setScreenshots)
-        }
-        Row(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(t.surface).border(1.dp, t.border, RoundedCornerShape(8.dp)).padding(horizontal = 14.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Text(stringResource(R.string.auto_capture_title), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-            if (autoOn) Badge(stringResource(R.string.badge_active), t.ok) else SecondaryButton(stringResource(R.string.auto_capture_open), onClick = actions.openAccessibility)
-        }
-
-        SectionTitle(stringResource(R.string.settings_storage))
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(targetLabel, Modifier.weight(1f), style = Mono, color = t.text2, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            SecondaryButton(stringResource(R.string.target_dir_change), onClick = actions.pickFolder)
-            if (s.downloadTreeUri.isNotEmpty()) SecondaryButton(stringResource(R.string.target_dir_reset), onClick = actions.resetFolder)
-        }
-
-        if (peers.isNotEmpty()) {
-            SectionTitle(stringResource(R.string.settings_bt))
-            peers.forEach { p ->
-                SwitchTile(p.title(), p.id.toHex() in s.btPriority, Modifier.fillMaxWidth()) { on -> actions.setBluetooth(p, on) }
+    val groupA: @Composable () -> Unit = {
+        Section(stringResource(R.string.settings_device)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                OutlinedTextField(name, { name = it }, Modifier.weight(1f), singleLine = true, shape = RoundedCornerShape(6.dp))
+                SecondaryButton(stringResource(R.string.settings_apply), enabled = name.isNotBlank() && name != s.deviceName, onClick = { actions.applyName(name) })
             }
         }
-
-        SectionTitle(stringResource(R.string.settings_system))
-        SwitchTile(stringResource(R.string.settings_autostart), s.autoStart, Modifier.fillMaxWidth(), actions.setAutostart)
-
-        SectionTitle(stringResource(R.string.settings_appearance))
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(R.string.settings_theme), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-            ThemeSegments(themeMode, actions.setTheme)
+        Section(stringResource(R.string.settings_sync)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                SwitchTile(stringResource(R.string.settings_sync_text), s.syncText, Modifier.weight(1f), actions.setSyncText)
+                SwitchTile(stringResource(R.string.settings_sync_images), s.syncImages, Modifier.weight(1f), actions.setSyncImages)
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                SwitchTile(stringResource(R.string.settings_receive_files), s.receiveFiles, Modifier.weight(1f), actions.setReceiveFiles)
+                SwitchTile(stringResource(R.string.settings_screenshots), s.autoScreenshots, Modifier.weight(1f), actions.setScreenshots)
+            }
+            Row(
+                Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Text(stringResource(R.string.auto_capture_title), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                if (autoOn) Badge(stringResource(R.string.badge_active), t.ok) else SecondaryButton(stringResource(R.string.auto_capture_open), onClick = actions.openAccessibility)
+            }
         }
-        Text("TransClip $version", style = Mono, color = t.text2, modifier = Modifier.padding(top = 12.dp, bottom = 24.dp))
+        Section(stringResource(R.string.settings_storage)) {
+            Text(targetLabel, style = Mono, color = t.text2)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                SecondaryButton(stringResource(R.string.target_dir_change), onClick = actions.pickFolder)
+                if (s.downloadTreeUri.isNotEmpty()) SecondaryButton(stringResource(R.string.target_dir_reset), onClick = actions.resetFolder)
+            }
+        }
+    }
+    val groupB: @Composable () -> Unit = {
+        if (peers.isNotEmpty()) {
+            Section(stringResource(R.string.settings_bt)) {
+                peers.forEach { p -> SwitchTile(p.title(), p.id.toHex() in s.btPriority, Modifier.fillMaxWidth()) { on -> actions.setBluetooth(p, on) } }
+            }
+        }
+        Section(stringResource(R.string.settings_system)) {
+            SwitchTile(stringResource(R.string.settings_autostart), s.autoStart, Modifier.fillMaxWidth(), actions.setAutostart)
+        }
+        Section(stringResource(R.string.settings_appearance)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(R.string.settings_theme), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                ThemeSegments(themeMode, actions.setTheme)
+            }
+        }
+        Text("TransClip $version", style = Mono, color = t.text2, modifier = Modifier.padding(bottom = 24.dp))
+    }
+    if (wide) {
+        Row(Modifier.fillMaxSize().padding(horizontal = 24.dp).verticalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(28.dp)) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(16.dp)) { groupA() }
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(16.dp)) { groupB() }
+        }
+    } else {
+        Column(Modifier.fillMaxSize().padding(horizontal = 20.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            groupA()
+            groupB()
+        }
+    }
+}
+
+@Composable
+private fun Section(title: String, content: @Composable () -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text(title, style = MaterialTheme.typography.titleSmall, color = tokens.text2)
+        Rule()
+        content()
     }
 }

@@ -65,7 +65,7 @@ fn viewport(title: &str, size: [f32; 2], min: [f32; 2]) -> egui::ViewportBuilder
 pub fn run() -> i32 {
     let Some(backend) = runtime() else { return 1 };
     let options = eframe::NativeOptions {
-        viewport: viewport("TransClip", [860.0, 600.0], [720.0, 500.0]),
+        viewport: viewport("TransClip", [940.0, 620.0], [400.0, 420.0]),
         ..Default::default()
     };
     let result = eframe::run_native(
@@ -447,12 +447,14 @@ impl SettingsApp {
     // ------------------------------------------------------------------ chrome
 
     fn header(&mut self, ui: &mut egui::Ui, p: &Palette) {
+        // Narrow windows put the tabs on their own line instead of squeezing the row.
+        let narrow = ui.available_width() < 620.0;
         ui.horizontal(|ui| {
             if let Some(logo) = &self.logo {
-                ui.add(egui::Image::new(logo).fit_to_exact_size(Vec2::splat(40.0)));
+                ui.add(egui::Image::new(logo).fit_to_exact_size(Vec2::splat(36.0)));
             }
             ui.vertical(|ui| {
-                ui.label(theme::bold("TransClip", 19.0));
+                ui.label(theme::bold("TransClip", 18.0));
                 let (dot, text) = if !self.daemon_up {
                     (p.err, "Tidak berjalan".to_owned())
                 } else if self.online_count() > 0 {
@@ -467,18 +469,9 @@ impl SettingsApp {
                     ui.label(theme::secondary(text, p));
                 });
             });
-            ui.add_space(20.0);
-            if let Some(i) = theme::tabs(
-                ui,
-                p,
-                &["Perangkat", "Pengaturan"],
-                usize::from(self.page == Page::Settings),
-            ) {
-                self.page = if i == 0 {
-                    Page::Devices
-                } else {
-                    Page::Settings
-                };
+            if !narrow {
+                ui.add_space(24.0);
+                self.tab_row(ui, p);
             }
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                 if let Some(m) = theme::theme_switcher(ui, p, self.mode) {
@@ -487,7 +480,26 @@ impl SettingsApp {
                 }
             });
         });
-        ui.add_space(8.0);
+        if narrow {
+            ui.horizontal(|ui| self.tab_row(ui, p));
+        }
+        theme::rule(ui, p);
+        ui.add_space(14.0);
+    }
+
+    fn tab_row(&mut self, ui: &mut egui::Ui, p: &Palette) {
+        if let Some(i) = theme::tabs(
+            ui,
+            p,
+            &["Perangkat", "Pengaturan"],
+            usize::from(self.page == Page::Settings),
+        ) {
+            self.page = if i == 0 {
+                Page::Devices
+            } else {
+                Page::Settings
+            };
+        }
     }
 
     fn note_bar(&mut self, ui: &mut egui::Ui, p: &Palette) {
@@ -520,53 +532,53 @@ impl SettingsApp {
 
     fn page_devices(&mut self, ui: &mut egui::Ui, p: &Palette) {
         let total = ui.available_width();
+        if total < 820.0 {
+            // One column: devices first, then the pairing panel.
+            self.devices_left(ui, p);
+            ui.add_space(16.0);
+            self.devices_right(ui, p);
+            return;
+        }
         let right_w = 312.0;
         let left_w = (total - right_w - 20.0).max(300.0);
         ui.horizontal_top(|ui| {
             ui.allocate_ui_with_layout(
                 Vec2::new(left_w, ui.available_height()),
                 Layout::top_down(Align::LEFT),
-                |ui| {
-                    self.devices_left(ui, p);
-                },
+                |ui| self.devices_left(ui, p),
             );
             ui.add_space(20.0);
             ui.allocate_ui_with_layout(
                 Vec2::new(right_w, ui.available_height()),
                 Layout::top_down(Align::LEFT),
-                |ui| {
-                    self.devices_right(ui, p);
-                },
+                |ui| self.devices_right(ui, p),
             );
         });
     }
 
     fn devices_left(&mut self, ui: &mut egui::Ui, p: &Palette) {
         let online = self.online_count();
-        ui.horizontal(|ui| {
-            ui.label(theme::bold(online.to_string(), 46.0).color(if online > 0 {
-                p.accent
+        ui.label(theme::bold(
+            match (self.paired, online) {
+                (false, _) => "Belum ada grup".to_owned(),
+                (true, 0) => "Menunggu perangkat".to_owned(),
+                (true, n) => format!("{n} perangkat terhubung"),
+            },
+            17.0,
+        ));
+        ui.label(theme::secondary(
+            if self.paired {
+                "Salin di satu perangkat, tempel di perangkat lain."
             } else {
-                p.text2
-            }));
-            ui.vertical(|ui| {
-                ui.add_space(6.0);
-                ui.label(theme::bold("perangkat terhubung", 16.0));
-                ui.label(theme::secondary(
-                    if self.paired {
-                        "Salin di satu perangkat, tempel di perangkat lain."
-                    } else {
-                        "Buat grup untuk mulai."
-                    },
-                    p,
-                ));
-            });
-        });
+                "Buat grup di panel Tambah perangkat."
+            },
+            p,
+        ));
         ui.add_space(12.0);
         let mut send = false;
         let mut folder = false;
         ui.horizontal(|ui| {
-            send = theme::primary_button(ui, p, "Kirim file…").clicked();
+            send = theme::primary_button(ui, p, "Kirim file").clicked();
             folder = theme::secondary_button(ui, p, "Buka folder terima").clicked();
         });
         if send {
@@ -584,10 +596,14 @@ impl SettingsApp {
         ui.add_space(16.0);
 
         let mut priority = self.config.bt_priority_peers.clone();
+        // Tiles share the row evenly, so they grow with the window instead of leaving a gap.
+        let avail = ui.available_width();
+        let cols = (((avail + 12.0) / 272.0).floor() as usize).max(1);
+        let tile_w = ((avail - 12.0 * (cols as f32 - 1.0)) / cols as f32).floor() - 1.0;
         ui.horizontal_wrapped(|ui| {
             ui.spacing_mut().item_spacing = Vec2::splat(12.0);
             for peer in self.peers.clone() {
-                theme::tile(ui, p, 214.0, 132.0, |ui| {
+                theme::tile(ui, p, tile_w, 150.0, |ui| {
                     ui.horizontal(|ui| {
                         theme::device_glyph(ui, p, &peer.platform, peer.state == "online");
                         ui.vertical(|ui| {
@@ -616,7 +632,8 @@ impl SettingsApp {
                             _ => {}
                         }
                     });
-                    ui.with_layout(Layout::bottom_up(Align::LEFT), |ui| {
+                    ui.add_space(8.0);
+                    {
                         ui.horizontal(|ui| {
                             let mut on = priority.contains(&peer.id);
                             if theme::toggle(ui, p, &mut on)
@@ -631,11 +648,11 @@ impl SettingsApp {
                             }
                             ui.label(theme::secondary("Cadangan Bluetooth", p));
                         });
-                    });
+                    }
                 });
             }
             if self.peers.is_empty() {
-                theme::tile(ui, p, 214.0, 132.0, |ui| {
+                theme::tile(ui, p, tile_w, 150.0, |ui| {
                     theme::device_glyph(ui, p, "", false);
                     ui.add_space(6.0);
                     ui.label(theme::bold("Belum ada perangkat", 14.5));
@@ -657,16 +674,16 @@ impl SettingsApp {
                     "Seret + tombol pemicu",
                     "Menu lingkaran untuk memilih tujuan file.",
                 ),
-                ("Klik kanan → Kirim ke", "Kirim file dari Explorer."),
+                ("Klik kanan, Kirim ke", "Kirim file dari Explorer."),
             ];
             ui.columns(3, |cols| {
                 for (i, (title, body)) in steps.iter().enumerate() {
                     let ui = &mut cols[i];
-                    ui.horizontal(|ui| {
-                        theme::badge(ui, p, &(i + 1).to_string(), p.accent);
-                        ui.label(theme::bold(*title, 13.5));
+                    ui.set_width(ui.available_width());
+                    ui.with_layout(Layout::top_down(Align::LEFT), |ui| {
+                        ui.label(theme::bold(*title, 13.5).color(p.accent));
+                        ui.label(theme::secondary(*body, p));
                     });
-                    ui.label(theme::secondary(*body, p));
                 }
             });
         });
@@ -769,7 +786,7 @@ impl SettingsApp {
                             self.confirm_rotate = false;
                         }
                     });
-                } else if theme::danger_button(ui, p, "Ganti kunci…").clicked() {
+                } else if theme::danger_button(ui, p, "Ganti kunci").clicked() {
                     self.confirm_rotate = true;
                 }
             });
@@ -802,22 +819,24 @@ impl SettingsApp {
     fn page_settings(&mut self, ui: &mut egui::Ui, p: &Palette) {
         self.poll_key_recording(ui.ctx());
         let total = ui.available_width();
-        let col_w = ((total - 16.0) / 2.0).max(280.0);
+        if total < 820.0 {
+            self.settings_left(ui, p);
+            ui.add_space(14.0);
+            self.settings_right(ui, p);
+            return;
+        }
+        let col_w = (total - 16.0) / 2.0;
         ui.horizontal_top(|ui| {
             ui.spacing_mut().item_spacing.x = 16.0;
             ui.allocate_ui_with_layout(
                 Vec2::new(col_w, ui.available_height()),
                 Layout::top_down(Align::LEFT),
-                |ui| {
-                    self.settings_left(ui, p);
-                },
+                |ui| self.settings_left(ui, p),
             );
             ui.allocate_ui_with_layout(
                 Vec2::new(col_w, ui.available_height()),
                 Layout::top_down(Align::LEFT),
-                |ui| {
-                    self.settings_right(ui, p);
-                },
+                |ui| self.settings_right(ui, p),
             );
         });
     }
@@ -877,7 +896,7 @@ impl SettingsApp {
             ui.add_space(8.0);
             let (mut pick, mut reset, mut open) = (false, false, false);
             ui.horizontal(|ui| {
-                pick = theme::secondary_button(ui, p, "Ubah…").clicked();
+                pick = theme::secondary_button(ui, p, "Ubah").clicked();
                 open = theme::secondary_button(ui, p, "Buka").clicked();
                 if custom {
                     reset = theme::secondary_button(ui, p, "Default").clicked();

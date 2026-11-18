@@ -379,9 +379,7 @@ pub fn theme_switcher(ui: &mut egui::Ui, p: &Palette, current: Mode) -> Option<M
                     _ => CornerRadius::ZERO,
                 };
                 let hover = resp.hovered() && !selected;
-                let fill = if selected {
-                    p.accent
-                } else if hover {
+                let fill = if selected || hover {
                     p.subtle
                 } else {
                     p.surface
@@ -390,10 +388,10 @@ pub fn theme_switcher(ui: &mut egui::Ui, p: &Palette, current: Mode) -> Option<M
                 ui.painter().rect_stroke(
                     rect,
                     radius,
-                    Stroke::new(1.0, if selected { p.accent } else { p.border }),
+                    Stroke::new(1.0, p.border),
                     StrokeKind::Inside,
                 );
-                let colour = if selected { p.on_accent } else { p.text2 };
+                let colour = if selected { p.accent } else { p.text2 };
                 ui.painter()
                     .galley(rect.center() - galley.size() / 2.0, galley, colour);
                 if resp.hovered() {
@@ -437,9 +435,15 @@ pub fn tile(ui: &mut egui::Ui, p: &Palette, w: f32, h: f32, add: impl FnOnce(&mu
         .corner_radius(CornerRadius::same(8))
         .inner_margin(egui::Margin::same(12))
         .show(ui, |ui| {
-            ui.set_min_size(Vec2::new(w - 24.0, h - 24.0));
-            ui.set_max_size(Vec2::new(w - 24.0, h - 24.0));
-            add(ui);
+            // A fixed box: children that stretch (bottom-up rows) cannot widen the tile.
+            ui.allocate_ui_with_layout(
+                Vec2::new(w - 24.0, h - 24.0),
+                Layout::top_down(Align::LEFT),
+                |ui| {
+                    ui.set_min_size(Vec2::new(w - 24.0, h - 24.0));
+                    add(ui);
+                },
+            );
         });
 }
 
@@ -537,33 +541,38 @@ pub fn chip(ui: &mut egui::Ui, p: &Palette, text: &str) {
         .galley(rect.center() - galley.size() / 2.0, galley, p.text);
 }
 
-/// Segmented tabs; returns the index that was clicked.
+/// Text tabs with a 2 px accent underline under the current one; returns the clicked index.
 pub fn tabs(ui: &mut egui::Ui, p: &Palette, labels: &[&str], current: usize) -> Option<usize> {
-    let font = FontId::new(14.0, FontFamily::Name("bold".into()));
     let mut picked = None;
-    ui.spacing_mut().item_spacing.x = 4.0;
+    ui.spacing_mut().item_spacing.x = 22.0;
     for (i, label) in labels.iter().enumerate() {
         let selected = i == current;
-        let galley = ui.painter().layout_no_wrap(
-            (*label).to_owned(),
-            font.clone(),
-            if selected { p.on_accent } else { p.text2 },
-        );
-        let (rect, resp) =
-            ui.allocate_exact_size(Vec2::new(galley.size().x + 28.0, 32.0), Sense::click());
-        let fill = if selected {
-            p.accent
-        } else if resp.hovered() {
-            p.subtle
+        let font = if selected {
+            FontId::new(15.0, FontFamily::Name("bold".into()))
         } else {
-            Color32::TRANSPARENT
+            FontId::new(15.0, FontFamily::Proportional)
         };
-        ui.painter().rect_filled(rect, CornerRadius::same(6), fill);
+        let colour = if selected { p.text } else { p.text2 };
+        let galley = ui
+            .painter()
+            .layout_no_wrap((*label).to_owned(), font, colour);
+        let (rect, resp) = ui.allocate_exact_size(Vec2::new(galley.size().x, 34.0), Sense::click());
         ui.painter().galley(
-            rect.center() - galley.size() / 2.0,
+            egui::pos2(rect.left(), rect.center().y - galley.size().y / 2.0 - 1.0),
             galley,
-            if selected { p.on_accent } else { p.text2 },
+            colour,
         );
+        let line = Rect::from_min_max(
+            egui::pos2(rect.left(), rect.bottom() - 2.0),
+            egui::pos2(rect.right(), rect.bottom()),
+        );
+        if selected {
+            ui.painter()
+                .rect_filled(line, CornerRadius::same(1), p.accent);
+        } else if resp.hovered() {
+            ui.painter()
+                .rect_filled(line, CornerRadius::same(1), p.border);
+        }
         if resp.hovered() {
             ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
         }
