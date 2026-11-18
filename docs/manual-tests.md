@@ -98,3 +98,11 @@ Gambar > 2 MiB lewat Bluetooth tidak dikirim langsung: HP menampilkan notifikasi
 | Salin otomatis HP → PC (teks, gambar di clipboard sistem) | lulus lewat layanan Aksesibilitas |
 | **Menu radial** (sumber drag sintetis + Shift + mouse) | **lulus:** lingkaran muncul, segmen tersorot, drop mengirim file ke HP; drop di pusat = batal, tidak ada transfer |
 | **Bluetooth failover (M10)** | **lulus:** Wi-Fi HP mati → Bluetooth aktif dalam **13 detik** (awal 97 detik, lihat D-015), teks terkirim lewat Bluetooth, Wi-Fi menyala → kembali ke LAN dalam 10 detik |
+
+### Tambahan T11 (sesi lanjutan)
+| Uji | Hasil |
+|---|---|
+| Interop Kotlin ↔ Rust, kirim dan terima folder (P5-02) | lulus: `LiveTransferInteropTest` melawan `interop_peer` (jalankan dengan `TRANSCLIP_INTEROP_PEER`) |
+| Menu *Kirim ke* (P5-05) | shortcut terbuat; `--send-ui` membuka jendela pemilih perangkat |
+| Layar transfer Android (P5-08) | tampil dengan progres dan **Batal**; Batal di HP menghentikan transfer di PC (`cancelled`) dan membersihkan file part |
+| Scan QR (P4-03) | dikonfirmasi pengguna |

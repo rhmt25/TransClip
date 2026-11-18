@@ -52,12 +52,12 @@ Baca `CLAUDE.md` dulu. Spesifikasi: `docs/PLAN.md` (arsitektur) dan `docs/PROTOC
 * **Status (2026-11-18):** Gradle 8.14.3 + wrapper, `:proto` (29 test hijau) dan `:app` (Compose, minSdk 29, AGP 8.11.1) selesai. `assembleDebug` dan `assembleRelease` (R8, 3,8 MB) berhasil. Tinggal **[MANUAL]**: pasang APK debug ke HP dan konfirmasi terbuka.
 
 
-### [~] P0-06 · Spike S1 — Gambar ke clipboard Android & Gboard [MANUAL]
+### [x] P0-06 · Spike S1 — Gambar ke clipboard Android & Gboard [MANUAL]
 * **Dep:** P0-05
 * **Lakukan:** di branch `spike/s1`, tombol "Tulis gambar uji": simpan PNG bawaan ke `MediaStore` (`Pictures/TransClip`, `IS_PENDING`) lalu `setPrimaryClip(ClipData.newUri(...))` **dari foreground service** (bukan Activity). Minta pengguna membuka Gboard → ikon clipboard.
 * **Selesai jika:** `docs/spikes/S1-gboard-image.md` berisi: merek/versi HP, versi Gboard, apakah gambar muncul, apakah teks muncul, kesimpulan. Hasil negatif tetap valid; update PLAN §9 bila perlu.
 
-### [~] P0-07 · Spike S2 — Auto-capture clipboard Android [MANUAL]
+### [x] P0-07 · Spike S2 — Auto-capture clipboard Android [MANUAL]
 * **Dep:** P0-05
 * **Lakukan:** di branch `spike/s2`:
   * `AccessibilityService` yang mencatat event (type, package, className, text) ke log saat pengguna menyalin teks di Chrome, WhatsApp, Gboard (salin dari papan ketik), dan app catatan.
@@ -65,12 +65,12 @@ Baca `CLAUDE.md` dulu. Spesifikasi: `docs/PLAN.md` (arsitektur) dan `docs/PROTOC
   * Ukur: apakah pembacaan berhasil, apakah keyboard tertutup/teks yang sedang diketik terganggu, latensi.
 * **Selesai jika:** `docs/spikes/S2-auto-capture.md` memuat tabel per app × metode, heuristik event final yang dipilih, dan keputusan (pakai / tidak / hanya untuk event tertentu). Keputusan dicatat di `DECISIONS.md`.
 
-### [ ] P0-08 · Spike S3 — Radial overlay menerima drop dari Explorer [MANUAL]
+### [x] P0-08 · Spike S3 — Radial overlay menerima drop dari Explorer [MANUAL]
 * **Dep:** P0-04
 * **Lakukan:** biner contoh `windows/app/examples/radial_spike.rs`: hook `WH_MOUSE_LL` + `WH_KEYBOARD_LL`, saat drag + Right Ctrl tampilkan jendela layered (lingkaran semi-transparan) dengan `IDropTarget`; saat drop, tampilkan MessageBox daftar file.
 * **Selesai jika:** `docs/spikes/S3-radial-drop.md` menjelaskan: berhasil/tidak dari Explorer, Desktop, Chrome (unduhan), aplikasi elevated; perilaku multi-monitor & DPI; keputusan aktivasi final (pemicu default).
 
-### [~] P0-09 · Spike S4 — RFCOMM Windows ↔ Android [MANUAL]
+### [x] P0-09 · Spike S4 — RFCOMM Windows ↔ Android [MANUAL]
 * **Dep:** P0-04, P0-05
 * **Lakukan:** server RFCOMM di Windows (Winsock `AF_BTH` + `WSASetService` dengan UUID PROTOCOL §2) yang mengirim balik byte; klien Android `createRfcommSocketToServiceRecord`. Uji juga arah sebaliknya (Android server `listenUsingRfcommWithServiceRecord`, Windows klien) dan Android ↔ Android.
 * **Selesai jika:** `docs/spikes/S4-rfcomm.md` mencatat keberhasilan tiap arah, throughput (KB/s) untuk 1 MB, dan API final Windows (Winsock vs WinRT).
@@ -192,13 +192,13 @@ Baca `CLAUDE.md` dulu. Spesifikasi: `docs/PLAN.md` (arsitektur) dan `docs/PROTOC
 * **Lakukan:** parsing argumen (PLAN §5.1), mutex single instance, path data (PLAN §5.2, gunakan `SHGetKnownFolderPath`), logging `tracing` rolling, `Config` (TOML, default, validasi, simpan atomik via file temp + rename), `SecretStore` DPAPI, panic hook, `build.rs` + manifest + ikon.
 * **Selesai jika:** menjalankan exe 2× → instans kedua keluar; file config & log dibuat; secrets terenkripsi (tidak terbaca sebagai teks); `clippy -D warnings` lulus.
 
-### [~] P2-06 · Daemon: thread UI, tray & jembatan ke engine
+### [x] P2-06 · Daemon: thread UI, tray & jembatan ke engine
 * **Dep:** P2-05, P2-03
 * **File:** `app/src/{ui_thread.rs,tray.rs,bridge.rs}`
 * **Lakukan:** message loop Win32, jendela message-only, `Shell_NotifyIconW` + menu (PLAN §5.5), `TaskbarCreated`, balloon notification; runtime tokio di thread lain; `bridge.rs` = channel dua arah UI↔engine (`PostMessageW` + `WM_APP`).
 * **Selesai jika:** **[MANUAL]** tray muncul, menu berfungsi (Keluar menutup bersih, Jeda mengubah ikon), restart Explorer → ikon kembali.
 
-### [~] P2-07 · Daemon: clipboard listener & writer
+### [x] P2-07 · Daemon: clipboard listener & writer
 * **Dep:** P2-06, P2-04
 * **File:** `app/src/clipboard/{mod.rs,read.rs,write.rs,dib.rs,formats.rs}`
 * **Lakukan:** sesuai PLAN §5.3 (debounce, retry, format, rahasia, penanda echo, DIB↔PNG dengan alpha). Implementasikan `ClipboardSink`.
@@ -224,25 +224,25 @@ Baca `CLAUDE.md` dulu. Spesifikasi: `docs/PLAN.md` (arsitektur) dan `docs/PROTOC
 * **Lakukan:** device_id dibuat sekali; GK dibungkus kunci Keystore AES-256-GCM (alias `transclip_gk_wrap`); DataStore untuk setting & peer.
 * **Selesai jika:** instrumented test (atau Robolectric) menyimpan/memuat GK; restart app → device_id sama.
 
-### [~] P3-02 · Engine Kotlin: Link, PeerManager, Discovery
+### [x] P3-02 · Engine Kotlin: Link, PeerManager, Discovery
 * **Dep:** P3-01
 * **File:** `app/.../engine/*`, `app/.../net/{TcpServer.kt,TcpDialer.kt,NsdDiscovery.kt,BeaconDiscovery.kt}`
 * **Lakukan:** padanan P2-01…P2-03 dengan coroutine. `NsdManager` register+discover+resolve (serialisasi resolve, satu per waktu — keterbatasan API lama); `MulticastLock`; `NetworkCallback`.
 * **Selesai jika:** unit test JVM untuk Link (dengan stream pipa) dan aturan dial; **[MANUAL]** HP dan PC (daemon P2) saling terhubung, status tampil di log kedua sisi.
 
-### [~] P3-03 · SyncService & notifikasi
+### [x] P3-03 · SyncService & notifikasi
 * **Dep:** P3-02
 * **File:** `service/SyncService.kt`, `service/BootReceiver.kt`
 * **Lakukan:** PLAN §6.5: FGS `connectedDevice`, notifikasi ongoing + aksi (Kirim clipboard, Jeda, Putuskan), start saat boot bila diaktifkan, `AppState` StateFlow.
 * **Selesai jika:** **[MANUAL]** service bertahan saat app di-swipe dari recents dan saat layar mati 30 menit; reboot → service jalan.
 
-### [~] P3-04 · Clipboard writer & riwayat
+### [x] P3-04 · Clipboard writer & riwayat
 * **Dep:** P3-03
 * **File:** `clip/ClipboardWriter.kt`, `storage/MediaWriter.kt`, `storage/HistoryRepo.kt`
 * **Lakukan:** implementasi `ClipboardSink` Android (PLAN §6.4 bagian menulis), penanda echo, simpan riwayat ≤100 item (gambar mereferensikan URI MediaStore).
 * **Selesai jika:** **[MANUAL]** salin teks & screenshot di PC → muncul di clipboard HP dan riwayat Gboard (sesuai hasil S1) dalam < 1 s.
 
-### [~] P3-05 · Jalur capture manual: Activity, Tile, notifikasi
+### [x] P3-05 · Jalur capture manual: Activity, Tile, notifikasi
 * **Dep:** P3-04
 * **File:** `clip/ClipCaptureActivity.kt`, `clip/SendClipTileService.kt`
 * **Lakukan:** Activity transparan (theme `Translucent.NoTitleBar`, `excludeFromRecents`, `noHistory`, `taskAffinity=""`) membaca di `onWindowFocusChanged(true)`; cek `EXTRA_IS_SENSITIVE` & penanda echo; kirim via service; toast singkat "Terkirim ke n perangkat". Tile & aksi notifikasi memanggilnya (Android 14+: gunakan `PendingIntent` untuk `startActivityAndCollapse`).
@@ -255,7 +255,7 @@ Baca `CLAUDE.md` dulu. Spesifikasi: `docs/PLAN.md` (arsitektur) dan `docs/PROTOC
 * **Selesai jika:** **[MANUAL]** di app yang diuji di S2, menyalin teks terkirim otomatis tanpa mengganggu pengetikan; mematikan toggle menghentikan semua pembacaan.
 * *Lewati dan tandai `[x] (dibatalkan: lihat DECISIONS)` bila S2 memutuskan tidak dipakai.*
 
-### [~] P3-07 · UI dasar: Onboarding & Home
+### [x] P3-07 · UI dasar: Onboarding & Home
 * **Dep:** P3-03
 * **File:** `ui/OnboardingScreen.kt`, `ui/HomeScreen.kt`, `ui/theme/*`
 * **Lakukan:** Onboarding bertahap (notifikasi → nearby devices → baterai → auto-capture opsional), setiap langkah bisa dilewati dengan penjelasan konsekuensi; Home: status, daftar peer (nama, platform, transport, status), 5 item terakhir, tombol *Kirim clipboard*. Material 3, dynamic color, mode gelap.
@@ -265,24 +265,24 @@ Baca `CLAUDE.md` dulu. Spesifikasi: `docs/PLAN.md` (arsitektur) dan `docs/PROTOC
 
 ## P4 — Pairing & Pengaturan
 
-### [~] P4-01 · Windows: proses Settings egui (kerangka)
+### [x] P4-01 · Windows: proses Settings egui (kerangka)
 * **Dep:** P2-08
 * **File:** `app/src/settings/{mod.rs,app.rs,tabs/*.rs}`
 * **Lakukan:** `transclip.exe --settings` membuka jendela eframe yang terhubung ke pipe; bila daemon tidak jalan → tawarkan menjalankannya. Enam tab PLAN §5.6 (isi bertahap), skala DPI benar, font sistem (Segoe UI) dengan fallback emoji.
 * **Selesai jika:** **[MANUAL]** jendela terbuka dari tray, menutupnya mengakhiri prosesnya (cek Task Manager), RAM daemon tidak naik.
 
-### [~] P4-02 · Windows: alur pairing
+### [x] P4-02 · Windows: alur pairing
 * **Dep:** P4-01
 * **Lakukan:** *Buat grup baru*, QR (`qrcode` → tekstur egui) dengan hitung mundur 2 menit, *Salin kode*, *Gabung dengan kode*, argumen `--pair`. Bergabung → simpan GK → engine restart koneksi.
 * **Selesai jika:** dua instans Windows (atau Windows + test peer) bergabung via kode dan terhubung; QR terbaca oleh aplikasi scanner umum.
 
-### [~] P4-03 · Android: alur pairing
+### [x] P4-03 · Android: alur pairing
 * **Dep:** P3-07
 * **File:** `ui/PairingScreen.kt`
 * **Lakukan:** *Scan QR* (zxing-android-embedded, minta izin kamera), *Tempel kode*, *Buat grup*, *Tampilkan QR* (zxing core → Bitmap), validasi kedaluwarsa, konfirmasi bila mengganti grup yang ada.
 * **Selesai jika:** **[MANUAL]** scan QR dari PC → terhubung < 5 s; Android A ↔ Android B via QR.
 
-### [~] P4-04 · Pengaturan lengkap (kedua platform)
+### [x] P4-04 · Pengaturan lengkap (kedua platform)
 * **Dep:** P4-02, P4-03
 * **Lakukan:** semua opsi PLAN §5.2 (`config.toml`) dan padanannya di Android `SettingsScreen` (nama perangkat, jeda, teks/gambar, terima file, boot, auto-capture, prioritas BT per peer, *Lupakan perangkat*, level log, ekspor log via share).
 * **Selesai jika:** setiap setting berpengaruh nyata (dicek manual per item, dicatat di `manual-tests.md`).
@@ -302,13 +302,13 @@ Baca `CLAUDE.md` dulu. Spesifikasi: `docs/PLAN.md` (arsitektur) dan `docs/PROTOC
 * **Lakukan:** PROTOCOL §9.3 lengkap: batch, `dir`, koneksi file terpisah (LAN), streaming SHA-256, `.transclip-part`, resume, rename konflik ` (n)`, validasi path, kuota, maksimal 3 transfer paralel per peer, progres via `watch`, pembatalan dua arah. Trait `IncomingStore` agar platform menentukan lokasi tulis.
 * **Selesai jika:** test integrasi localhost: folder 3 tingkat (termasuk folder kosong & nama Unicode) tiba identik (hash per file); putus di tengah 200 MB → resume dari offset; path jahat ditolak; batal di tengah membersihkan part.
 
-### [ ] P5-02 · Biner peer interop live
+### [x] P5-02 · Biner peer interop live
 * **Dep:** P5-01
 * **File:** `windows/crates/engine/examples/interop_peer.rs`
 * **Lakukan:** engine lengkap headless yang bisa diperintah via stdin (kirim teks, kirim file, tampilkan item diterima) untuk test Kotlin.
 * **Selesai jika:** dipakai oleh P5-03; perintah terdokumentasi di `CLAUDE.md`.
 
-### [~] P5-03 · Engine Kotlin: TransferManager
+### [x] P5-03 · Engine Kotlin: TransferManager
 * **Dep:** P5-02, P3-02
 * **Lakukan:** padanan P5-01; `IncomingStore` Android menulis ke default `MediaStore.Downloads` (`Download/TransClip/…`). Folder kustom ditambahkan di P5-09, jadi rancang `IncomingStore` sebagai interface dengan dua implementasi (`MediaStoreDownloads`, `SafTree`).
 * **Selesai jika:** test JVM interop live (skip bila env tidak ada): kirim/terima folder dengan `interop_peer`, hash cocok, resume bekerja.
@@ -319,7 +319,7 @@ Baca `CLAUDE.md` dulu. Spesifikasi: `docs/PLAN.md` (arsitektur) dan `docs/PROTOC
 * **Lakukan:** PLAN §5.4 sesuai keputusan S3. `geometry.rs` (sudut → segmen, sub-ring) diuji unit. Render dengan Direct2D atau tiny-skia ke DIB premultiplied.
 * **Selesai jika:** unit test geometri (N=1..12, batas sudut); **[MANUAL]** drag 1 file, banyak file, dan 1 folder dari Explorer ke segmen peer & "Semua" → tiba di tujuan; Esc membatalkan; multi-monitor dengan DPI berbeda tampil benar.
 
-### [~] P5-05 · Windows: SendTo & dialog kirim
+### [x] P5-05 · Windows: SendTo & dialog kirim
 * **Dep:** P5-01, P2-08
 * **Lakukan:** `transclip.exe --send <paths…>` → kirim ke daemon via pipe → popup pemilih perangkat (egui kecil atau menu radial di tengah layar); buat/hapus shortcut `SendTo` dari setting; menu tray *Kirim file…*.
 * **Selesai jika:** **[MANUAL]** klik kanan file → Kirim ke → TransClip → pilih perangkat → terkirim.
@@ -329,18 +329,18 @@ Baca `CLAUDE.md` dulu. Spesifikasi: `docs/PLAN.md` (arsitektur) dan `docs/PROTOC
 * **Lakukan:** `IncomingStore` Windows (default `FOLDERID_Downloads\TransClip`, membaca `download_dir` dari config, long path `\\?\`), notifikasi saat batch selesai (klik → buka folder di Explorer dengan file terpilih), progres di tooltip tray.
 * **Selesai jika:** **[MANUAL]** kirim folder dari HP → tiba di `Downloads\TransClip\<folder>` dengan struktur utuh.
 
-### [~] P5-07 · Android: Share Sheet, pemilih perangkat, Direct Share
+### [x] P5-07 · Android: Share Sheet, pemilih perangkat, Direct Share
 * **Dep:** P5-03
 * **File:** `share/ShareReceiverActivity.kt`, `ui/DevicePickerSheet.kt`
 * **Lakukan:** PLAN §6.6.
 * **Selesai jika:** **[MANUAL]** bagikan 1 foto, 10 foto, PDF, dan teks dari app lain → tiba di PC; Direct Share menampilkan peer yang sering dipakai.
 
-### [~] P5-08 · Android: layar Transfer & Riwayat
+### [x] P5-08 · Android: layar Transfer & Riwayat
 * **Dep:** P5-07
 * **Lakukan:** `TransfersScreen` (progres, batal, ulangi), `HistoryScreen` (ketuk = salin lagi, tahan = hapus, bersihkan semua).
 * **Selesai jika:** **[MANUAL]** progres bergerak saat transfer besar; batal di HP menghentikan transfer di PC.
 
-### [~] P5-09 · Folder tujuan yang dapat diubah (Windows & Android)
+### [x] P5-09 · Folder tujuan yang dapat diubah (Windows & Android)
 * **Dep:** P5-06, P5-03, P4-04
 * **Spesifikasi:** PLAN §4.5 (wajib dibaca utuh).
 * **Lakukan — Windows:**

@@ -13,7 +13,7 @@ Perangkat uji: HP Redmi 22021211RG / POCO F4 (MIUI, Android), PC Windows 11. Dic
 - Gambar hanya tertangkap bila aplikasi sumber benar-benar menaruhnya di clipboard sistem.
 
 ## S3 — Radial overlay menerima drop dari Explorer
-Belum dikonfirmasi pengguna. Implementasi ada (D-014); hasil uji dicatat di T09.
+Berhasil (uji otomatis 2026-11-18): overlay `WS_EX_LAYERED|NOACTIVATE|TOPMOST` menerima drop `CF_HDROP` lewat `IDropTarget` dari sumber drag OLE (`DoDragDrop`). Pemicu final: Shift (polling, D-014). Belum diuji dari Explorer, aplikasi elevated, dan monitor dengan DPI berbeda.
 
 ## S4 — RFCOMM Windows dan Android
 - Windows: WinRT `RfcommServiceProvider` + `StreamSocketListener` (server) dan `BluetoothDevice.GetRfcommServicesForIdAsync` + `StreamSocket` (klien) berfungsi untuk layanan UUID PROTOCOL §2; API final: **WinRT**, bukan Winsock `AF_BTH`.
