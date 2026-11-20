@@ -19,11 +19,13 @@ import io.transclip.app.AppState
 import io.transclip.app.MainActivity
 import io.transclip.app.R
 import io.transclip.app.TransClipApp
+import io.transclip.app.clip.ClipAccessibilityService
 import io.transclip.app.clip.ClipCaptureActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
@@ -52,6 +54,13 @@ class SyncService : Service() {
         AppState.paused.onEach { refreshNotification() }.launchIn(scope)
         AppState.paired.onEach { refreshNotification() }.launchIn(scope)
         registerNetworkCallback()
+        // Keeps the accessibility service bound: HyperOS and similar can drop it silently.
+        scope.launch {
+            while (true) {
+                ClipAccessibilityService.rebindIfDropped(this@SyncService)
+                delay(30_000)
+            }
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -83,6 +92,11 @@ class SyncService : Service() {
             override fun onAvailable(network: Network) {
                 Log.d(TAG, "network available, announcing")
                 app.engine.onNetworkChanged()
+            }
+
+            override fun onCapabilitiesChanged(network: Network, caps: android.net.NetworkCapabilities) {
+                // Validated after joining: peers on this network can be dialed now.
+                if (caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED)) app.engine.onNetworkChanged()
             }
         }
         callback = cb

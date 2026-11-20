@@ -28,6 +28,8 @@ data class Settings(
     val autoScreenshots: Boolean = false,
     /** Device ids (hex) that should get a Bluetooth link when the LAN is down. */
     val btPriority: Set<String> = emptySet(),
+    /** Peers seen before, as `deviceIdHex|name`; lets Bluetooth reach them without a LAN sighting. */
+    val knownPeers: Set<String> = emptySet(),
     /** Largest image sent in full over Bluetooth; bigger ones are announced. */
     val btInlineImageMax: Int = 2 * 1024 * 1024,
     /** SAF tree URI of the receive folder; empty means `Download/TransClip`. */
@@ -63,6 +65,7 @@ class SettingsRepo(private val store: DataStore<Preferences>) {
             autoCapture = p[AUTO_CAPTURE] ?: false,
             autoScreenshots = p[AUTO_SCREENSHOTS] ?: false,
             btPriority = p[BT_PRIORITY] ?: emptySet(),
+            knownPeers = p[KNOWN_PEERS] ?: emptySet(),
             downloadTreeUri = p[DOWNLOAD_URI].orEmpty(),
             onboardingDone = p[ONBOARDING] ?: false,
             themeMode = p[THEME] ?: "auto",
@@ -83,6 +86,7 @@ class SettingsRepo(private val store: DataStore<Preferences>) {
             p[AUTO_CAPTURE] = next.autoCapture
             p[AUTO_SCREENSHOTS] = next.autoScreenshots
             p[BT_PRIORITY] = next.btPriority
+            p[KNOWN_PEERS] = next.knownPeers
             p[DOWNLOAD_URI] = next.downloadTreeUri
             p[ONBOARDING] = next.onboardingDone
             p[THEME] = next.themeMode
@@ -99,6 +103,7 @@ class SettingsRepo(private val store: DataStore<Preferences>) {
         val AUTO_CAPTURE = booleanPreferencesKey("auto_capture")
         val AUTO_SCREENSHOTS = booleanPreferencesKey("auto_screenshots")
         val BT_PRIORITY = stringSetPreferencesKey("bt_priority")
+        val KNOWN_PEERS = stringSetPreferencesKey("known_peers")
         val DOWNLOAD_URI = stringPreferencesKey("download_tree_uri")
         val ONBOARDING = booleanPreferencesKey("onboarding_done")
         val THEME = stringPreferencesKey("theme_mode")

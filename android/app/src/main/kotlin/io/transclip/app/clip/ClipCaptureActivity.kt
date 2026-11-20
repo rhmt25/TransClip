@@ -40,8 +40,18 @@ class ClipCaptureActivity : Activity() {
         super.onWindowFocusChanged(hasFocus)
         if (!hasFocus || handled) return
         handled = true
+        capture(attempt = 0)
+    }
+
+    private fun capture(attempt: Int) {
         val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         val data = cm.primaryClip
+        // Some systems (HyperOS) report focus a moment before the clipboard service agrees and
+        // answer "not in focus" with an empty clip; try again briefly before giving up.
+        if (auto && (data == null || data.itemCount == 0) && attempt < 4) {
+            window.decorView.postDelayed({ if (!isFinishing) capture(attempt + 1) }, 120)
+            return
+        }
         Log.d(TAG, "capture: items=${data?.itemCount} mimes=${(0 until (data?.description?.mimeTypeCount ?: 0)).map { data?.description?.getMimeType(it) }} uri=${data?.getItemAt(0)?.uri != null} auto=$auto")
         val outcome = describe(data)
         if (outcome != null) {

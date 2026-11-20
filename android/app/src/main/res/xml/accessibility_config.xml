@@ -1,9 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- No events and no window content are requested: the service exists only so that Android lets
-     TransClip bring up its capture screen when the clipboard changes in the background. -->
+<!-- No window content is requested. Clicks and toasts are delivered only so that a tap on a
+     "Copy"/"Salin" button or a "Copied" toast can be recognised by its short label; TransClip then
+     brings up its capture screen, because Android does not tell background apps about clipboard
+     changes. -->
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
-    android:accessibilityEventTypes="typeWindowStateChanged"
+    android:accessibilityEventTypes="typeViewClicked|typeNotificationStateChanged"
     android:accessibilityFeedbackType="feedbackGeneric"
     android:canRetrieveWindowContent="false"
     android:description="@string/accessibility_description"
-    android:notificationTimeout="1000" />
+    android:notificationTimeout="50" />

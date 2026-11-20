@@ -2,6 +2,8 @@ package io.transclip.app.net
 
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothClass
+import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothServerSocket
 import android.bluetooth.BluetoothSocket
@@ -64,6 +66,11 @@ class RfcommServer(private val context: Context, private val mgr: PeerManager, p
         val adapter = adapterOf(context) ?: return
         scope.launch(Dispatchers.IO) {
             while (isActive) {
+                // Bluetooth may be switched on (or the permission granted) after the engine started.
+                if (!bluetoothReady(context)) {
+                    delay(3_000)
+                    continue
+                }
                 val s = try {
                     adapter.listenUsingRfcommWithServiceRecord(SERVICE_NAME, RFCOMM_UUID)
                 } catch (e: IOException) {
@@ -92,24 +99,45 @@ class RfcommServer(private val context: Context, private val mgr: PeerManager, p
     }
 }
 
+/** True when the device has a Bluetooth adapter at all (it may still be switched off). */
+fun hasBluetooth(context: Context): Boolean = adapterOf(context) != null
+
 /**
  * Connects to paired devices that run TransClip. The peer's Bluetooth address is not known, so
- * each bonded device is tried in turn; the handshake then checks who answered.
+ * paired computers and phones are tried (headsets, controllers and the like are skipped); the
+ * device that answered last time goes first. The handshake then checks who answered.
  */
 class RfcommDialer(private val context: Context) : BtDialer {
+    private val prefs = context.applicationContext.getSharedPreferences("bt_dialer", Context.MODE_PRIVATE)
+
+    @SuppressLint("MissingPermission")
+    private fun mayRunTransClip(d: BluetoothDevice): Boolean {
+        val major = d.bluetoothClass?.majorDeviceClass ?: return true
+        return major == BluetoothClass.Device.Major.COMPUTER ||
+            major == BluetoothClass.Device.Major.PHONE ||
+            major == BluetoothClass.Device.Major.UNCATEGORIZED
+    }
+
     @SuppressLint("MissingPermission")
     override suspend fun connect(peer: DeviceId): RawConn {
         val adapter = adapterOf(context) ?: throw IOException("no bluetooth adapter")
         if (!bluetoothReady(context)) throw IOException("bluetooth not available")
         runCatching { adapter.cancelDiscovery() }
+        val lastGood = prefs.getString(LAST_GOOD, null)
+        val candidates = adapter.bondedDevices.orEmpty()
+            .filter(::mayRunTransClip)
+            .sortedBy { it.address != lastGood }
+        if (candidates.isEmpty()) {
+            Log.w(TAG, "no paired computer or phone; pair this phone with the PC in Bluetooth settings")
+        }
         var last: Exception? = null
-        for (device in adapter.bondedDevices.orEmpty()) {
+        for (device in candidates) {
             val sock = device.createRfcommSocketToServiceRecord(RFCOMM_UUID)
             try {
                 withContext(Dispatchers.IO) {
                     // connect() cannot be cancelled; closing the socket is what ends it early.
                     val watchdog = launch {
-                        delay(8_000)
+                        delay(PER_DEVICE_TIMEOUT_MS)
                         runCatching { sock.close() }
                     }
                     try {
@@ -119,12 +147,18 @@ class RfcommDialer(private val context: Context) : BtDialer {
                     }
                 }
                 Log.d(TAG, "bluetooth connected to a paired device")
+                prefs.edit().putString(LAST_GOOD, device.address).apply()
                 return BtConn(sock)
             } catch (e: Exception) {
                 last = e
                 runCatching { sock.close() }
             }
         }
-        throw last ?: IOException("no paired devices")
+        throw last ?: IOException("no paired computers or phones")
+    }
+
+    private companion object {
+        const val LAST_GOOD = "last_good"
+        const val PER_DEVICE_TIMEOUT_MS = 5_000L
     }
 }

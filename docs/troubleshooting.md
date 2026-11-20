@@ -10,6 +10,16 @@
 ## HP berhenti menerima saat layar mati
 Pengoptimal baterai (Doze, mode hemat merek tertentu) menghentikan layanan. Buka Pengaturan Android, Aplikasi, TransClip, Baterai, pilih **Tanpa batasan**. Pada beberapa merek (Xiaomi, Oppo, Vivo, Samsung) aktifkan juga *Mulai otomatis*.
 
+## Xiaomi, POCO, Redmi (HyperOS/MIUI): sinkron berhenti setelah restart
+1. Aktifkan **Mulai otomatis**: aplikasi *Keamanan*, *Izin*, *Mulai otomatis*, nyalakan TransClip. Menunya tidak ada di halaman info aplikasi.
+2. Pengaturan, Aplikasi, TransClip, *Penghemat baterai*: **Tanpa batasan**. Di Recent Apps, tekan lama kartu TransClip lalu kunci dengan ikon gembok.
+3. Bila Pengaturan Aksesibilitas menulis *Layanan ini tidak berfungsi*, sistem melepas layanan setelah aplikasi dimatikan. Beri izin sekali agar TransClip memasangnya ulang sendiri:
+   `adb shell pm grant io.transclip.app android.permission.WRITE_SECURE_SETTINGS`
+   Tanpa izin itu, matikan lalu nyalakan lagi layanannya secara manual.
+
+## Bluetooth tidak tersambung otomatis
+Pasangkan (pair) HP dengan PC di pengaturan Bluetooth sistem, sekali saja. Bluetooth hanya dipakai bila Wi-Fi putus atau berbeda jaringan; saat satu Wi-Fi, LAN yang dipakai.
+
 ## SmartScreen memperingatkan saat membuka .exe
 File belum ditandatangani sertifikat code signing. Pilih *More info*, lalu *Run anyway*. Cocokkan SHA-256 file dengan `SHA256SUMS.txt`.
 

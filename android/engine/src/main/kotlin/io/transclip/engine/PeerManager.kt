@@ -50,6 +50,8 @@ data class ManagerConfig(
     /** Close Bluetooth when the LAN link has been up this long. */
     val btCloseAfterMs: Long = 60_000,
     val btMaxLinks: Int = 3,
+    /** Use Bluetooth as the fallback for every peer, not only the ones in the priority set. */
+    val btAll: Boolean = false,
 )
 
 /** How a link reaches the peer. */
@@ -101,6 +103,8 @@ private sealed interface Internal {
     class DialFailed(val id: DeviceId) : Internal
     class BtDialFailed(val id: DeviceId) : Internal
     class SetBtPriority(val peers: Set<DeviceId>) : Internal
+    class Known(val id: DeviceId, val name: String) : Internal
+    data object Nudge : Internal
     data object Tick : Internal
     class Stop(val done: CompletableDeferred<Unit>) : Internal
 }
@@ -220,6 +224,16 @@ class PeerManager(
     /** Peers that should get a Bluetooth link when the LAN is down (PLAN section 4.2). */
     fun setBtPriority(peers: Set<DeviceId>) {
         internal.trySend(Internal.SetBtPriority(peers))
+    }
+
+    /** Remember a paired peer that has not been seen on the network yet, so Bluetooth can reach it. */
+    fun addKnown(id: DeviceId, name: String) {
+        internal.trySend(Internal.Known(id, name))
+    }
+
+    /** The network or Bluetooth came back: retry offline peers now instead of after the backoff. */
+    fun nudge() {
+        internal.trySend(Internal.Nudge)
     }
 
     /** Say `bye` to all peers, close the listener and stop. */
@@ -366,6 +380,20 @@ class PeerManager(
                     publish()
                 }
                 is Internal.SetBtPriority -> btPriority = msg.peers
+                is Internal.Known -> if (msg.id != cfg.local.id && admit(msg.id, msg.name)) {
+                    peers.getOrPut(msg.id) { Peer(msg.name, null, cfg.backoffMinMs, nowMs()) }
+                    publish()
+                }
+                is Internal.Nudge -> {
+                    val now = nowMs()
+                    peers.values.forEach {
+                        if (!it.has(Transport.LAN)) {
+                            it.backoffMs = cfg.backoffMinMs
+                            it.nextTryMs = now
+                            it.btNextTryMs = now
+                        }
+                    }
+                }
                 is Internal.Ready -> msg.accept.complete(onReady(msg))
                 is Internal.Closed -> onClosed(msg)
             }
@@ -425,7 +453,7 @@ class PeerManager(
             return
         }
         val btLinks = peers.values.count { it.has(Transport.BLUETOOTH) } + peers.values.count { it.btDialing }
-        if (id !in btPriority || now - peer.offlineSinceMs < cfg.btDownAfterMs ||
+        if (!(cfg.btAll || id in btPriority) || now - peer.offlineSinceMs < cfg.btDownAfterMs ||
             peer.has(Transport.BLUETOOTH) || peer.btDialing || now < peer.btNextTryMs || btLinks >= cfg.btMaxLinks
         ) {
             return

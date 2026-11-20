@@ -50,7 +50,7 @@
     <string name="transfers_title">Transfer Berjalan</string>
     <string name="transfer_cancel">Batal</string>
     <string name="history_clear">Bersihkan riwayat</string>
-    <string name="accessibility_description">TransClip hanya mendengarkan perubahan clipboard agar bisa menyinkronkannya otomatis. Layanan ini tidak membaca isi layar.</string>
+    <string name="accessibility_description">TransClip mengenali saat kamu menyalin (tombol \"Salin\" atau notifikasi \"Disalin\") agar clipboard bisa disinkronkan otomatis. Hanya label tombol/notifikasi itu yang diperiksa; isi layar tidak dibaca.</string>
     <string name="auto_capture_title">Salin otomatis</string>
     <string name="auto_capture_on">Aktif: clipboard dikirim otomatis saat disalin</string>
     <string name="auto_capture_off">Nonaktif: aktifkan layanan Aksesibilitas TransClip agar clipboard terkirim otomatis</string>

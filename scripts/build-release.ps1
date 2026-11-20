@@ -10,7 +10,11 @@ $env:Path += ";$env:USERPROFILE\.cargo\bin"
 
 function Invoke-Step([string]$what, [scriptblock]$block) {
     Write-Host "==> $what"
-    & $block
+    # Windows PowerShell 5.1 turns a native command's stderr into an error record; success is
+    # decided by the exit code below.
+    $ErrorActionPreference = 'Continue'
+    & $block 2>&1 | ForEach-Object { "$_" }
+    $ErrorActionPreference = 'Stop'
     if ($LASTEXITCODE -ne 0) { throw "$what failed (exit $LASTEXITCODE)" }
 }
 

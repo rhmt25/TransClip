@@ -36,6 +36,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.withLock
 import java.net.InetAddress
 import java.net.InetSocketAddress
 
@@ -63,8 +64,27 @@ class EngineHost(private val context: Context) {
 
     val isRunning: Boolean get() = mgr != null
 
+    /**
+     * Start/stop are serialised: after boot the boot receiver and the app opening both start the
+     * service, and two overlapping starts used to bind port 47820 twice and crash the app.
+     */
+    private val lifecycle = kotlinx.coroutines.sync.Mutex()
+
     /** Start the engine. Without a group key nothing is started and `paired` stays false. */
-    suspend fun start(): Boolean {
+    suspend fun start(): Boolean = lifecycle.withLock {
+        try {
+            startLocked()
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            Log.e(TAG, "engine start failed: ${e.javaClass.simpleName}: ${e.message}")
+            stopLocked()
+            false
+        }
+    }
+
+    suspend fun stop() = lifecycle.withLock { stopLocked() }
+
+    private suspend fun startLocked(): Boolean {
         if (isRunning) return true
         val gk: GroupKey? = secrets.groupKey()
         AppState.setPaired(gk != null)
@@ -85,20 +105,27 @@ class EngineHost(private val context: Context) {
         val seen = Channel<PeerSeen>(64)
         val manager = PeerManager(
             ManagerConfig(
-                local = LocalInfo(me, cfg.deviceName, "android", "transclip/1.0.0", listOf("clip"), "full"),
+                local = LocalInfo(me, cfg.deviceName, "android", "transclip/" + (runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "1"), listOf("clip"), "full"),
                 gk = gk,
                 listenPort = TCP_PORT,
-                bt = if (io.transclip.app.net.bluetoothReady(context)) io.transclip.app.net.RfcommDialer(context) else null,
+                // Always on when the phone has Bluetooth: the dialer and server wait for it to be switched on.
+                bt = if (io.transclip.app.net.hasBluetooth(context)) io.transclip.app.net.RfcommDialer(context) else null,
+                btAll = cfg.btPriority.isEmpty(),
             ),
             s,
             seen,
         )
         manager.start()
         mgr = manager
-        if (io.transclip.app.net.bluetoothReady(context)) {
-            // Paired devices can reach us over Bluetooth; priority peers are dialed when the LAN is down.
+        if (io.transclip.app.net.hasBluetooth(context)) {
+            // Paired devices can reach us over Bluetooth; peers are dialed when the LAN is down.
             rfcomm = io.transclip.app.net.RfcommServer(context, manager, s).also { it.start() }
             manager.setBtPriority(cfg.btPriority.mapNotNull { runCatching { DeviceId.fromHex(it) }.getOrNull() }.toSet())
+        }
+        // Peers from earlier sessions: Bluetooth can reach them even before the LAN sees them.
+        for (entry in cfg.knownPeers) {
+            val id = runCatching { DeviceId.fromHex(entry.substringBefore('|')) }.getOrNull() ?: continue
+            manager.addKnown(id, entry.substringAfter('|', ""))
         }
 
         val gid = gk.groupId()
@@ -145,6 +172,21 @@ class EngineHost(private val context: Context) {
         transfers = tm
 
         manager.status.onEach { AppState.setPeers(it) }.launchIn(s)
+        s.launch {
+            // Remember every peer that connected so it stays reachable over Bluetooth after a restart.
+            manager.status.collect { list ->
+                val online = list.filter { it.state == io.transclip.engine.PeerState.ONLINE }
+                if (online.isEmpty()) return@collect
+                val known = settings.get().knownPeers
+                val fresh = online.map { "${it.id.toHex()}|${it.name}" }.filter { it !in known }
+                if (fresh.isNotEmpty()) {
+                    settings.update { cur ->
+                        val ids = fresh.map { it.substringBefore('|') }.toSet()
+                        cur.copy(knownPeers = cur.knownPeers.filterNot { it.substringBefore('|') in ids }.toSet() + fresh)
+                    }
+                }
+            }
+        }
         s.launch {
             for (ev in manager.events) {
                 if (ev is io.transclip.engine.ManagerEvent.FrameIn) {
@@ -235,7 +277,7 @@ class EngineHost(private val context: Context) {
         File(context.cacheDir, "outgoing").listFiles()?.filter { it.lastModified() < cutoff }?.forEach { it.deleteRecursively() }
     }
 
-    suspend fun stop() {
+    private suspend fun stopLocked() {
         screenshots?.stop()
         screenshots = null
         rfcomm?.stop()
@@ -259,6 +301,7 @@ class EngineHost(private val context: Context) {
     /** Called when the network changes: announce and let discovery run again. */
     fun onNetworkChanged() {
         beacon?.announceNow()
+        mgr?.nudge()
     }
 
     /** Whether the sync toggle for this kind (text or image) is on. */
