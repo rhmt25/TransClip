@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.1.1
+
+Sinkron otomatis Android tetap jalan setelah restart HP dan setelah aplikasi dibersihkan dari Recent Apps, tanpa pengaturan ulang.
+
+- Android: pemulihan layanan Aksesibilitas benar-benar bekerja. Sebelumnya mematikan dan menyalakan layanan dilakukan terlalu cepat sehingga sistem tidak melihat perubahan dan layanan tetap berstatus *crashed* ("Layanan ini tidak berfungsi"). Kini ada jeda 1,5 detik dan pemeriksaan tiap 15 detik.
+- Android: salinan dikenali dari pratinjau "disalin" milik sistem (Android 13+), jadi berlaku di semua aplikasi, termasuk Chrome yang tidak mengirim event ketukan tombol *Salin*.
+- Android: layanan sinkron dihidupkan kembali otomatis oleh tiga jalur: saat layanan Aksesibilitas terikat, job berkala sistem (bertahan setelah reboot), dan setelah aplikasi diperbarui.
+- Android: notifikasi pengaturan latar belakang bila *Mulai otomatis* (Xiaomi/POCO/Redmi) mati atau penghemat baterai membatasi TransClip; ketukan langsung membuka layarnya, dan notifikasi hilang setelah diperbaiki.
+- Android: satu salinan tidak lagi memicu layar penangkap dua kali; nama event di log tidak lagi teracak R8.
+- Versi aplikasi: 1.1.1 (Windows dan Android).
+
 ## 1.1.0
 
 Perbaikan sinkronisasi otomatis di latar belakang, terutama untuk HyperOS/MIUI.

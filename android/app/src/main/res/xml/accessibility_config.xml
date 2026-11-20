@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- No window content is requested. Clicks and toasts are delivered only so that a tap on a
-     "Copy"/"Salin" button or a "Copied" toast can be recognised by its short label; TransClip then
-     brings up its capture screen, because Android does not tell background apps about clipboard
-     changes. -->
+<!-- Android does not tell background apps about clipboard changes, so a copy is recognised from its
+     side effects: a tap on a "Copy"/"Salin" button (its short label), a "Copied" toast, or the
+     "copied" preview that System UI shows on Android 13+ (recognised by its view id). Window
+     content is only queried for that System UI window; no other screen content is read. -->
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
-    android:accessibilityEventTypes="typeViewClicked|typeNotificationStateChanged"
+    android:accessibilityEventTypes="typeViewClicked|typeNotificationStateChanged|typeWindowStateChanged"
     android:accessibilityFeedbackType="feedbackGeneric"
-    android:canRetrieveWindowContent="false"
+    android:accessibilityFlags="flagReportViewIds|flagRetrieveInteractiveWindows"
+    android:canRetrieveWindowContent="true"
     android:description="@string/accessibility_description"
     android:notificationTimeout="50" />

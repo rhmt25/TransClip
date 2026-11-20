@@ -54,16 +54,19 @@ class SyncService : Service() {
         AppState.paused.onEach { refreshNotification() }.launchIn(scope)
         AppState.paired.onEach { refreshNotification() }.launchIn(scope)
         registerNetworkCallback()
+        BackgroundReadiness.check(this)
         // Keeps the accessibility service bound: HyperOS and similar can drop it silently.
         scope.launch {
             while (true) {
                 ClipAccessibilityService.rebindIfDropped(this@SyncService)
-                delay(30_000)
+                delay(15_000)
             }
         }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // Re-checked whenever the app is opened, so a fixed setting clears its notification.
+        BackgroundReadiness.check(this)
         when (intent?.action) {
             ACTION_PAUSE -> scope.launch {
                 val paused = !AppState.paused.value

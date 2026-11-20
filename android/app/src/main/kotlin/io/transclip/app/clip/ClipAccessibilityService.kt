@@ -8,6 +8,7 @@ import android.provider.Settings
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import io.transclip.app.AppState
+import kotlinx.coroutines.launch
 
 private const val TAG = "TransClip"
 
@@ -34,7 +35,8 @@ class ClipAccessibilityService : AccessibilityService() {
             val now = System.currentTimeMillis()
             if (AppState.paused.value) return@postDelayed
             if (now - lastOwnWriteMs < 2_000) return@postDelayed
-            if (now - lastLaunch < 400) return@postDelayed
+            // One copy can raise several signals (button, System UI preview, toast).
+            if (now - lastLaunch < 1_200) return@postDelayed
             lastLaunch = now
             Log.d(TAG, "clipboard probably changed ($why), starting capture")
             val intent = Intent(this, ClipCaptureActivity::class.java)
@@ -50,6 +52,11 @@ class ClipAccessibilityService : AccessibilityService() {
         cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         cm.addPrimaryClipChangedListener(listener)
         Log.i(TAG, "auto-capture service connected")
+        // Android binds this service right after boot or after the process was killed; use that
+        // to bring the sync engine back too.
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main).launch {
+            io.transclip.app.service.KeepAliveJob.revive(this@ClipAccessibilityService, "accessibility bound")
+        }
     }
 
     /**
@@ -61,6 +68,12 @@ class ClipAccessibilityService : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         event ?: return
         if (event.packageName == packageName) return
+        if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+            // Android 13+ shows a "copied" preview from System UI after every copy, in any app.
+            // It is recognised by its view id only; its text is not read.
+            if (event.packageName == SYSTEM_UI && isClipboardOverlay(event)) requestCapture("copy overlay", 100)
+            return
+        }
         val label = buildString {
             event.text.forEach { append(it).append(' ') }
             event.contentDescription?.let { append(it) }
@@ -73,6 +86,18 @@ class ClipAccessibilityService : AccessibilityService() {
                 // Toasts carry no Notification; real notifications are ignored.
                 if (event.parcelableData !is android.app.Notification && looksLikeCopied(label)) requestCapture("copied toast", 100)
         }
+    }
+
+    private fun isClipboardOverlay(event: AccessibilityEvent): Boolean {
+        // The overlay is not the active window, so look it up among all windows by its id.
+        val root = event.source
+            ?: runCatching { windows.firstOrNull { it.id == event.windowId }?.root }.getOrNull()
+        val found = root != null && runCatching {
+            root.viewIdResourceName?.contains("clipboard") == true ||
+                root.findAccessibilityNodeInfosByViewId("$SYSTEM_UI:id/clipboard_ui").isNotEmpty() ||
+                root.findAccessibilityNodeInfosByViewId("$SYSTEM_UI:id/clipboard_preview").isNotEmpty()
+        }.getOrDefault(false)
+        return found
     }
 
     override fun onInterrupt() = Unit
@@ -90,6 +115,7 @@ class ClipAccessibilityService : AccessibilityService() {
 
     companion object {
         private const val MAX_LABEL = 60
+        private const val SYSTEM_UI = "com.android.systemui"
         private val COPY_WORDS = listOf("copy", "salin", "salinan")
         private val COPIED_WORDS = listOf("copied", "disalin", "tersalin", "clipboard", "papan klip")
 
@@ -105,6 +131,8 @@ class ClipAccessibilityService : AccessibilityService() {
             return COPIED_WORDS.any { it in l }
         }
 
+        private val rebinding = java.util.concurrent.atomic.AtomicBoolean(false)
+
         /** True while the system has this service bound; false after the process was killed. */
         @Volatile
         var connected = false
@@ -116,8 +144,12 @@ class ClipAccessibilityService : AccessibilityService() {
          * working". Switching the entry off and on again makes Android bind it afresh. Needs
          * WRITE_SECURE_SETTINGS, granted once with
          * `adb shell pm grant io.transclip.app android.permission.WRITE_SECURE_SETTINGS`.
+         *
+         * The "off" value must stay in place for a moment: the accessibility manager reads the
+         * setting when its observer runs, and two back-to-back writes look like no change at all,
+         * leaving the service in its "crashed" state.
          */
-        fun rebindIfDropped(context: Context): Boolean {
+        suspend fun rebindIfDropped(context: Context): Boolean {
             if (connected || !isEnabled(context)) return false
             if (context.checkSelfPermission(android.Manifest.permission.WRITE_SECURE_SETTINGS) !=
                 android.content.pm.PackageManager.PERMISSION_GRANTED
@@ -125,17 +157,27 @@ class ClipAccessibilityService : AccessibilityService() {
                 return false
             }
             val me = "${context.packageName}/${ClipAccessibilityService::class.java.name}"
-            return runCatching {
-                val cr = context.contentResolver
+            // Only one off/on cycle at a time (watchdog, keep-alive job and binding all call this).
+            if (!rebinding.compareAndSet(false, true)) return false
+            val cr = context.contentResolver
+            return try {
                 val current = Settings.Secure.getString(cr, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES).orEmpty()
                 val others = current.split(':').filter { it.isNotEmpty() && !it.equals(me, ignoreCase = true) }
+                Log.i(TAG, "accessibility service was dropped by the system; switching it off and on")
                 Settings.Secure.putString(cr, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES, others.joinToString(":"))
+                kotlinx.coroutines.delay(1_500)
                 Settings.Secure.putString(cr, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES, (others + me).joinToString(":"))
-                Log.i(TAG, "accessibility service was dropped by the system; asked Android to bind it again")
+                Settings.Secure.putInt(cr, Settings.Secure.ACCESSIBILITY_ENABLED, 1)
+                kotlinx.coroutines.delay(2_000)
+                Log.i(TAG, "accessibility service rebind ${if (connected) "succeeded" else "pending"}")
                 true
-            }.getOrElse {
-                Log.w(TAG, "cannot rebind accessibility service: ${it.javaClass.simpleName}")
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(TAG, "cannot rebind accessibility service: ${e.javaClass.simpleName}")
                 false
+            } finally {
+                rebinding.set(false)
             }
         }
 

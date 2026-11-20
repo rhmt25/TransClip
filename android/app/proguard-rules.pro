@@ -4,3 +4,6 @@
 -keep class org.bouncycastle.crypto.** { *; }
 -keep class org.bouncycastle.math.ec.rfc7748.** { *; }
 -dontwarn org.bouncycastle.**
+
+# Keep event class names readable in logcat ("clip event: Delivered").
+-keepnames class io.transclip.engine.ClipEvent$* { *; }

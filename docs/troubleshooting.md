@@ -11,7 +11,7 @@
 Pengoptimal baterai (Doze, mode hemat merek tertentu) menghentikan layanan. Buka Pengaturan Android, Aplikasi, TransClip, Baterai, pilih **Tanpa batasan**. Pada beberapa merek (Xiaomi, Oppo, Vivo, Samsung) aktifkan juga *Mulai otomatis*.
 
 ## Xiaomi, POCO, Redmi (HyperOS/MIUI): sinkron berhenti setelah restart
-1. Aktifkan **Mulai otomatis**: aplikasi *Keamanan*, *Izin*, *Mulai otomatis*, nyalakan TransClip. Menunya tidak ada di halaman info aplikasi.
+1. Aktifkan **Mulai otomatis**: aplikasi *Keamanan*, *Izin*, *Mulai otomatis*, nyalakan TransClip (atau ketuk notifikasi *Agar TransClip tetap jalan di latar belakang*). Menunya tidak ada di halaman info aplikasi. Hanya toggle di layar itu yang tersimpan: nilai yang diubah lewat `adb appops` dikembalikan HyperOS saat aplikasi diperbarui. Setelah uninstall, toggle ini kembali mati.
 2. Pengaturan, Aplikasi, TransClip, *Penghemat baterai*: **Tanpa batasan**. Di Recent Apps, tekan lama kartu TransClip lalu kunci dengan ikon gembok.
 3. Bila Pengaturan Aksesibilitas menulis *Layanan ini tidak berfungsi*, sistem melepas layanan setelah aplikasi dimatikan. Beri izin sekali agar TransClip memasangnya ulang sendiri:
    `adb shell pm grant io.transclip.app android.permission.WRITE_SECURE_SETTINGS`

@@ -111,6 +111,12 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        // Coming back from the Autostart / battery screen clears the matching setup notification.
+        io.transclip.app.service.BackgroundReadiness.check(this)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         intent?.data?.toString()?.let {

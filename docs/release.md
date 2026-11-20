@@ -14,4 +14,4 @@
    ```
    Simpan keystore dan sandinya dengan aman; tanpa itu pembaruan APK tidak bisa dipasang di atas versi lama.
 3. Windows code signing bersifat opsional (butuh sertifikat); tanpa itu SmartScreen memperingatkan.
-4. Jalankan seluruh `docs\manual-tests.md` dengan build release, lalu beri tag `v1.1.0`.
+4. Jalankan seluruh `docs\manual-tests.md` dengan build release, lalu beri tag `v1.1.1`.

@@ -8,10 +8,13 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-/** Starts the sync service after boot when the user enabled it and a group exists. */
+/**
+ * Starts the sync service after boot and after the app was updated, when the user enabled it and
+ * a group exists, so nothing has to be opened by hand.
+ */
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action != Intent.ACTION_BOOT_COMPLETED) return
+        if (intent.action != Intent.ACTION_BOOT_COMPLETED && intent.action != Intent.ACTION_MY_PACKAGE_REPLACED) return
         val app = context.applicationContext as TransClipApp
         val pending = goAsync()
         CoroutineScope(Dispatchers.IO).launch {
@@ -19,6 +22,7 @@ class BootReceiver : BroadcastReceiver() {
                 if (app.settings.get().autoStart && app.secrets.groupKey() != null) {
                     SyncService.start(context)
                 }
+                KeepAliveJob.schedule(context)
             } finally {
                 pending.finish()
             }

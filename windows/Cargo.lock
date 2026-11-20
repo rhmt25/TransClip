@@ -661,7 +661,7 @@ dependencies = [
 
 [[package]]
 name = "engine"
-version = "1.1.0"
+version = "1.1.1"
 dependencies = [
  "mdns-sd",
  "proto",
@@ -1995,7 +1995,7 @@ dependencies = [
 
 [[package]]
 name = "proto"
-version = "1.1.0"
+version = "1.1.1"
 dependencies = [
  "base64",
  "chacha20poly1305",
@@ -2713,7 +2713,7 @@ dependencies = [
 
 [[package]]
 name = "transclip"
-version = "1.1.0"
+version = "1.1.1"
 dependencies = [
  "anyhow",
  "eframe",
@@ -2741,7 +2741,7 @@ dependencies = [
 
 [[package]]
 name = "tvgen"
-version = "1.1.0"
+version = "1.1.1"
 dependencies = [
  "proto",
  "serde_json",
